@@ -26,6 +26,7 @@ const MyPerformance = () => {
         setLoading(true);
         try {
             const response = await api.get('/performance/me');
+            console.log('Stats carregados da API:', response.data);
             setStats(response.data);
         } catch (error) {
             console.error('Erro ao buscar desempenho:', error);
@@ -147,26 +148,13 @@ const MyPerformance = () => {
 
             {/* FILTROS E AÇÕES */}
             <div className={styles.filterStrip}>
-                <select 
-                    className={styles.filterSelect}
-                    value={filterPeriodo}
-                    onChange={(e) => setFilterPeriodo(e.target.value)}
-                >
-                    <option value="today">Hoje</option>
-                    <option value="7_days">7 dias</option>
-                    <option value="15_days">15 dias</option>
-                    <option value="30_days">30 dias</option>
-                    <option value="custom">Personalizado</option>
-                </select>
-                <select className={styles.filterSelect}>
-                    <option value="all">Status: Todos</option>
-                </select>
+                <div className={styles.periodBadge}>
+                    <Calendar size={14} /> 
+                    Competência Ativa: {competencia?.label || '...'}
+                </div>
                 <div style={{ flex: 1 }}></div>
                 <button className={styles.actionButton} onClick={fetchPerformance}>
                     <RefreshCw size={16} /> Atualizar
-                </button>
-                <button className={styles.actionButton}>
-                    <Download size={16} /> Exportar Visão
                 </button>
             </div>
 

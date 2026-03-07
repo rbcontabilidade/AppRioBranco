@@ -134,8 +134,16 @@ async def get_my_performance(user_info: tuple = Depends(get_current_user_from_co
             "rh_tarefas(titulo, ordem, dias_prazo)"
         ).in_("id", ids_tarefas).execute()
 
-        todas_tarefas = res_tarefas.data or []
-
+        todas_tarefas_raw = res_tarefas.data or []
+        
+        # Filtrar as tarefas para deixar apenas as da competência ativa atual
+        if comp_id:
+            todas_tarefas = [
+                t for t in todas_tarefas_raw
+                if (t.get("rh_execucao_processos") or {}).get("competencia_id") == comp_id
+            ]
+        else:
+            todas_tarefas = todas_tarefas_raw
         # ── 4. Cálculos de Visão Geral (KPIs) ────────────────────────────────
         concluidas = [t for t in todas_tarefas if t["status"] == "CONCLUIDA"]
         em_andamento = [t for t in todas_tarefas if t["status"] == "EM ANDAMENTO"]

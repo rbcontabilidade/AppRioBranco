@@ -367,24 +367,22 @@
 .filterSelect {
     padding: 8px 16px;
     border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: var(--bg-card, #ffffff);
     font-size: 0.85rem;
-    color: var(--text-primary);
+    color: var(--text-primary, #333333);
     outline: none;
     transition: all 0.2s;
     cursor: pointer;
 }
 
 .filterSelect option {
-    background: var(--bg-primary, #0f172a);
-    color: var(--text-primary, #e2e8f0);
+    background: var(--bg-card, #ffffff);
+    color: var(--text-primary, #333333);
 }
 
 .filterSelect:hover {
-    border-color: rgba(255, 255, 255, 0.3);
-    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(0, 0, 0, 0.2);
 }
 
 .actionButton {
