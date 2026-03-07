@@ -135,24 +135,36 @@ const Sidebar = ({ isCollapsed }) => {
                     <div className={styles.uacDivider} />
                     <div className={styles.uacSectionLabel}>Configuracoes</div>
 
-                    <button className={styles.uacItem}>
+                    <button
+                        className={styles.uacItem}
+                        onClick={() => {
+                            setIsUserMenuOpen(false);
+                            navigate('/settings');
+                        }}
+                    >
                         <div className={`${styles.uacItemIcon} ${styles.iconPurple}`}>
                             <Palette size={16} />
                         </div>
                         <div className={styles.uacItemText}>
-                            <span className={styles.uacItemLabel}>Personalizacao</span>
+                            <span className={styles.uacItemLabel}>Personalização</span>
                             <span className={styles.uacItemDesc}>Tema, cores e menu</span>
                         </div>
                         <ChevronRight size={14} className={styles.uacItemArrow} />
                     </button>
 
-                    <button className={styles.uacItem}>
+                    <button
+                        className={styles.uacItem}
+                        onClick={() => {
+                            setIsUserMenuOpen(false);
+                            navigate('/settings');
+                        }}
+                    >
                         <div className={`${styles.uacItemIcon} ${styles.iconOrange}`}>
                             <Key size={16} />
                         </div>
                         <div className={styles.uacItemText}>
                             <span className={styles.uacItemLabel}>Alterar Senha</span>
-                            <span className={styles.uacItemDesc}>Seguranca da conta</span>
+                            <span className={styles.uacItemDesc}>Segurança da conta</span>
                         </div>
                         <ChevronRight size={14} className={styles.uacItemArrow} />
                     </button>
