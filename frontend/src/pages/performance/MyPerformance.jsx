@@ -39,16 +39,28 @@ const MyPerformance = () => {
         fetchPerformance();
     }, [profile]);
 
+    // Destructuring seguro ANTES dos early returns
+    const rawTarefas = stats?.tarefas || [];
+    const kpis = stats?.kpis || {};
+    const eficiencia = stats?.eficiencia || {};
+    const tendencia = stats?.tendencia || [];
+    const metas = stats?.metas || {};
+    const competencia = stats?.competencia || {};
+    const funcionario = stats?.funcionario || {};
+
     // Lógica para inferir gamificação e dados a partir do histórico de tarefas
     const derivedData = useMemo(() => {
-        if (!stats?.tarefas) return { attention: [], streak: 0, badges: [] };
+        if (!stats?.tarefas) return { attention: [], streak: 0, onTimeCount: 0, badges: [
+            { id: 'semana_sem_atraso', name: 'Semana Sem Atrasos', desc: 'Entregou todas as tarefas da semana no prazo', locked: true, icon: <ShieldCheck size={24} /> },
+            { id: 'entrega_limpa', name: 'Entrega Limpa', desc: 'Concluiu demandas com alta qualidade', locked: true, icon: <Star size={24} /> },
+            { id: 'ritmo_forte', name: 'Ritmo Forte', desc: 'Manteve alta produtividade contínua', locked: true, icon: <Flame size={24} /> }
+        ] };
         
-        const attention = stats.tarefas.filter(t => t.atrasada || t.status === 'VENCE_HOJE' || t.status === 'EM_RISCO').slice(0, 4);
+        const attention = rawTarefas.filter(t => t.atrasada || t.status === 'VENCE_HOJE' || t.status === 'EM_RISCO').slice(0, 4);
         
-        // Simulação de streak contando concluídos que não foram atrasados
         let streak = 0;
         let onTimeCount = 0;
-        stats.tarefas.forEach(t => {
+        rawTarefas.forEach(t => {
             if (t.status === 'CONCLUIDO' && !t.atrasada) {
                 onTimeCount++;
                 streak++;
@@ -65,29 +77,10 @@ const MyPerformance = () => {
 
         return { attention, streak, onTimeCount, badges };
     }, [stats?.tarefas]);
-
-    if (loading) {
-        return (
-            <div className={styles.loading}>
-                <div className="spinner"></div>
-                <p>Analisando seus resultados...</p>
-            </div>
-        );
-    }
-
-    if (!stats) return <div className={styles.error}>Ops! Não conseguimos carregar seus dados.</div>;
-
-    const kpis = stats.kpis || {};
-    const eficiencia = stats.eficiencia || {};
-    const tendencia = stats.tendencia || [];
-    const metas = stats.metas || {};
-    const tarefas = stats.tarefas || [];
-    const competencia = stats.competencia || {};
-    const funcionario = stats.funcionario || {};
     
     // Computando KPIs baseados puramente no array de tarefas atreladas à competência
     const computedKPIs = useMemo(() => {
-        if (!tarefas || !Array.isArray(tarefas) || tarefas.length === 0) return { ativas: 0, vencemHoje: 0, atrasadas: 0, concluidas: 0, taxaNoPrazo: 100 };
+        if (!rawTarefas || !Array.isArray(rawTarefas) || rawTarefas.length === 0) return { ativas: 0, vencemHoje: 0, atrasadas: 0, concluidas: 0, taxaNoPrazo: 100 };
         
         let ativas = 0;
         let vencemHoje = 0;
@@ -95,11 +88,10 @@ const MyPerformance = () => {
         let concluidas = 0;
         let concluidasNoPrazo = 0;
 
-        // O backend real pode usar "VENCE_HOJE" no status ou um indicador de data
         const hojeObj = new Date();
         const hojeFormatado = hojeObj.toISOString().split('T')[0];
 
-        tarefas.forEach(t => {
+        rawTarefas.forEach(t => {
             const dataVencString = t.data_vencimento ? String(t.data_vencimento) : '';
             const isVenceHoje = t.status === 'VENCE_HOJE' || dataVencString.startsWith(hojeFormatado);
 
@@ -116,7 +108,7 @@ const MyPerformance = () => {
         const taxaNoPrazo = concluidas > 0 ? Math.round((concluidasNoPrazo / concluidas) * 100) : 100;
 
         return { ativas, vencemHoje, atrasadas, concluidas, taxaNoPrazo };
-    }, [tarefas]);
+    }, [stats?.tarefas]);
 
     // Preparar dados do Gráfico Pie (Distribuição da Carteira)
     const distribuicao = [
@@ -127,7 +119,7 @@ const MyPerformance = () => {
     ].filter(d => d.value > 0);
 
     // Filtrar tarefas baseadas na Tab Smart
-    const filteredTasks = (tarefas || []).filter(t => {
+    const filteredTasks = rawTarefas.filter(t => {
         const dataVencString = t.data_vencimento ? String(t.data_vencimento) : '';
         const isVenceHoje = t.status === 'VENCE_HOJE' || dataVencString.startsWith(new Date().toISOString().split('T')[0]);
         if (activeTab === 'Atrasadas') return t.atrasada;
@@ -135,6 +127,18 @@ const MyPerformance = () => {
         if (activeTab === 'Concluídas') return t.status === 'CONCLUIDO';
         return true;
     });
+
+    // NOW early returns (Sem erro de Hook do React)
+    if (loading) {
+        return (
+            <div className={styles.loading}>
+                <div className="spinner"></div>
+                <p>Analisando seus resultados...</p>
+            </div>
+        );
+    }
+
+    if (!stats) return <div className={styles.error}>Ops! Não conseguimos carregar seus dados.</div>;
 
     return (
         <div className={styles.performanceContainer}>
