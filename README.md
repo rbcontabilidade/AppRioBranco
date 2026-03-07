@@ -1,3 +1,12 @@
+---
+title: AppRioBranco API
+emoji: 🚀
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+pinned: false
+---
+
 # AppRioBranco
 
 Sistema web de gestão operacional, acompanhamento de processos e monitoramento de desempenho, com **backend em FastAPI**, **frontend em React + Vite** e integração com **Supabase**.
