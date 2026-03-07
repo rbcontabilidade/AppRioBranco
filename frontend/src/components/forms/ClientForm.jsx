@@ -5,6 +5,15 @@ import { Button } from '../ui/Button/Button';
 import api from '../../services/api';
 import { Info, MapPin, Key, Shield, HardDrive, Mail, Phone, ExternalLink, Search, LayoutGrid, List as ListIcon, CheckCircle2 } from 'lucide-react';
 
+const GoogleDriveIcon = ({ size = 24, style = {} }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 87.3 78" width={size} height={size} style={style}>
+    <path d="M6.6 66.52l21.5-37.3 14.5 25.1-21.5 37.3-14.5-25.1z" fill="#0066da"/>
+    <path d="M46.5 66.52l-21.5-37.3h29l21.5 37.3h-29z" fill="#00ac47"/>
+    <path d="M25 29.22h43L53.5 4.12h-43l14.5 25.1z" fill="#ea4335"/>
+    <path d="M68 29.22l-14.5-25.1-21.5 37.3h43l-7-12.2z" fill="#ffba00"/>
+  </svg>
+);
+
 export const ClientForm = ({ initialData, onSuccess, onCancel }) => {
     // Abas do formulário
     const [activeTab, setActiveTab] = useState('geral');
@@ -195,7 +204,7 @@ export const ClientForm = ({ initialData, onSuccess, onCancel }) => {
                 { id: 'inscricoes', label: 'Inscrições', icon: Shield },
                 { id: 'contato', label: 'Contato', icon: MapPin },
                 { id: 'acessos', label: 'Acessos e Senhas', icon: Key },
-                { id: 'drive', label: 'Drive', icon: HardDrive },
+                { id: 'drive', label: 'Drive', icon: GoogleDriveIcon },
                 { id: 'processos', label: 'Processos Mensais', icon: Shield }
             ].map((tab) => (
                 <button
@@ -313,7 +322,7 @@ export const ClientForm = ({ initialData, onSuccess, onCancel }) => {
                 {activeTab === 'drive' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', background: 'rgba(255,255,255,0.02)', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
                         <div style={{ marginBottom: '1rem', textAlign: 'center' }}>
-                            <HardDrive size={48} color="#818cf8" style={{ marginBottom: '1rem', opacity: 0.8 }} />
+                            <GoogleDriveIcon size={48} style={{ marginBottom: '1rem', opacity: 0.8 }} />
                             <h4 style={{ color: '#fff', fontSize: '1.1rem', marginBottom: '0.5rem' }}>Link do Google Drive</h4>
                             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Insira o link da pasta de documentos deste cliente para acesso rápido através da lista.</p>
                         </div>
