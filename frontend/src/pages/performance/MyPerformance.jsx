@@ -26,7 +26,10 @@ const MyPerformance = () => {
         setLoading(true);
         try {
             const response = await api.get('/performance/me');
-            console.log('Stats carregados da API:', response.data);
+            console.log('--- DIAGNOSTIC: /performance/me ---');
+            console.log('Raw Payload (Entire):', response.data);
+            console.log('Raw Competencia:', response.data?.competencia);
+            console.log('Competencia Label:', response.data?.competencia?.label);
             setStats(response.data);
         } catch (error) {
             console.error('Erro ao buscar desempenho:', error);
