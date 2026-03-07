@@ -87,7 +87,7 @@ const MyPerformance = () => {
     
     // Computando KPIs baseados puramente no array de tarefas atreladas à competência
     const computedKPIs = useMemo(() => {
-        if (!tarefas || tarefas.length === 0) return { ativas: 0, vencemHoje: 0, atrasadas: 0, concluidas: 0, taxaNoPrazo: 100 };
+        if (!tarefas || !Array.isArray(tarefas) || tarefas.length === 0) return { ativas: 0, vencemHoje: 0, atrasadas: 0, concluidas: 0, taxaNoPrazo: 100 };
         
         let ativas = 0;
         let vencemHoje = 0;
@@ -100,7 +100,8 @@ const MyPerformance = () => {
         const hojeFormatado = hojeObj.toISOString().split('T')[0];
 
         tarefas.forEach(t => {
-            const isVenceHoje = t.status === 'VENCE_HOJE' || (t.data_vencimento && t.data_vencimento.startsWith(hojeFormatado));
+            const dataVencString = t.data_vencimento ? String(t.data_vencimento) : '';
+            const isVenceHoje = t.status === 'VENCE_HOJE' || dataVencString.startsWith(hojeFormatado);
 
             if (t.status === 'CONCLUIDO') {
                 concluidas++;
@@ -126,8 +127,9 @@ const MyPerformance = () => {
     ].filter(d => d.value > 0);
 
     // Filtrar tarefas baseadas na Tab Smart
-    const filteredTasks = tarefas.filter(t => {
-        const isVenceHoje = t.status === 'VENCE_HOJE' || (t.data_vencimento && t.data_vencimento.startsWith(new Date().toISOString().split('T')[0]));
+    const filteredTasks = (tarefas || []).filter(t => {
+        const dataVencString = t.data_vencimento ? String(t.data_vencimento) : '';
+        const isVenceHoje = t.status === 'VENCE_HOJE' || dataVencString.startsWith(new Date().toISOString().split('T')[0]);
         if (activeTab === 'Atrasadas') return t.atrasada;
         if (activeTab === 'Vencem Hoje') return isVenceHoje && !t.atrasada && t.status !== 'CONCLUIDO';
         if (activeTab === 'Concluídas') return t.status === 'CONCLUIDO';
