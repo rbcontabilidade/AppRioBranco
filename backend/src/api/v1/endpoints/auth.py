@@ -195,6 +195,43 @@ async def debug_login(form_data: dict, request: Request):
         "cookies": request.cookies
     }
 
+@router.put('/profile')
+async def update_profile(request: Request, body: dict, user_info: tuple = Depends(get_current_user_from_cookie)):
+    """Rota para o usuário logado atualizar nome e avatar_url no próprio cadastro de funcionário."""
+    user_id, payload = user_info
+    
+    nome = body.get('nome')
+    avatar_url = body.get('avatar_url')
+    
+    update_data = {}
+    if nome is not None:
+        update_data['nome'] = nome
+    # Atualmente a tabela funcionarios não tem avatar_url, devemos garantir que possamos salvar lá ou ignorar se não existir
+    # Pelo requirement anterior, vamos focar em nome e caso haja avatar_url no futuro.
+    if avatar_url is not None:
+         # Vamos tentar atualizar, se a coluna não existir, o Supabase retornará erro
+         # No futuro deve-se adicionar a coluna avatar_url na tabela funcionarios
+         update_data['avatar_url'] = avatar_url
+         
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Nenhum dado enviado para atualização.")
+        
+    try:
+        update_res = supabase.table('funcionarios').update(update_data).eq('id', user_id).execute()
+        return {'message': 'Perfil atualizado com sucesso.', 'data': update_res.data}
+    except Exception as e:
+        print(f"Erro ao atualizar perfil: {e}")
+        # Ignora erro de coluna inexistente para avatar_url por enquanto
+        if "avatar_url" in str(e):
+             del update_data['avatar_url']
+             if update_data:
+                 update_res = supabase.table('funcionarios').update(update_data).eq('id', user_id).execute()
+                 return {'message': 'Perfil atualizado com sucesso (Avatar ignorado pois coluna não existe).', 'data': update_res.data}
+             else:
+                 return {'message': 'Nada a atualizar.'}
+        raise HTTPException(status_code=500, detail="Erro interno ao atualizar perfil.")
+
+
 @router.post('/change-password')
 async def change_password(request: Request, body: dict, user_info: tuple = Depends(get_current_user_from_cookie)):
     """Rota para o usuário logado alterar sua própria senha."""

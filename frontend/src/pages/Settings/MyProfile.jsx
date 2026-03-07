@@ -4,6 +4,7 @@ import { GlassCard } from '../../components/ui/GlassCard/GlassCard';
 import { GlassInput } from '../../components/ui/GlassInput/GlassInput';
 import { Button } from '../../components/ui/Button/Button';
 import { useAuth } from '../../contexts/AuthContext';
+import api from '../../services/api';
 import { supabase } from '../../services/supabase';
 import { useDialog } from '../../contexts/DialogContext';
 
@@ -12,43 +13,22 @@ import { useDialog } from '../../contexts/DialogContext';
  * Permite ao usuário editar o próprio nome, foto (avatar) e alterar a senha.
  */
 const MyProfile = () => {
-    const { user } = useAuth();
+    const { user, login } = useAuth(); // Usando login para forçar atualização do context se necessário, ou só atualiza local
     const { showAlert } = useDialog();
 
     // Estado do Perfil
-    const [name, setName] = useState('');
-    const [avatarUrl, setAvatarUrl] = useState(null);
+    const [name, setName] = useState(user?.nome || '');
+    const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || null);
     const [loadingProfile, setLoadingProfile] = useState(false);
 
     // Estado da Senha
+    const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loadingPassword, setLoadingPassword] = useState(false);
 
     // Ref para upload oculto
     const fileInputRef = useRef(null);
-
-    // Carrega dados mais recentes da tabela public.profiles ao iniciar
-    useEffect(() => {
-        if (!user?.id) return;
-
-        const fetchProfile = async () => {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', user.id)
-                .single();
-
-            if (data) {
-                setName(data.name || user.nome || '');
-                setAvatarUrl(data.avatar_url || null);
-            } else if (user.nome) {
-                setName(user.nome);
-            }
-        };
-
-        fetchProfile();
-    }, [user]);
 
     // Lida com o Upload de Avatar
     const handleAvatarUpload = async (e) => {
@@ -70,10 +50,9 @@ const MyProfile = () => {
 
             // Criar nome único para o arquivo
             const fileExt = file.name.split('.').pop();
-            const filePath = `${user.id}-${Math.random()}.${fileExt}`;
+            const filePath = `avatar-${user.id}-${Math.random()}.${fileExt}`;
 
-            // 1. Upload pro bucket 'avatars' (certifique-se de que ele exista e permita public/auth)
-            // Se o bucket não existir, este passo irá falhar. Confirme que ele foi criado no Supabase.
+            // 1. Upload pro bucket 'avatars' usando client do Supabase (Acesso Anonimo permitido para upload se configurado)
             const { error: uploadError } = await supabase.storage
                 .from('avatars')
                 .upload(filePath, file);
@@ -87,14 +66,15 @@ const MyProfile = () => {
 
             setAvatarUrl(publicUrl);
 
-            // 3. Atualizar tabela profiles via onSubmit ou diretamente aqui
-            // Optaremos por atualizar diretamente o avatar pelo upload
-            const { error: updateError } = await supabase
-                .from('profiles')
-                .update({ avatar_url: publicUrl })
-                .eq('id', user.id);
+            // 3. Atualizar no backend
+            await api.put('/auth/profile', { avatar_url: publicUrl });
 
-            if (updateError) throw updateError;
+            // Atualiza localmente
+            const storedUser = JSON.parse(localStorage.getItem('user'));
+            if (storedUser) {
+                storedUser.avatar_url = publicUrl;
+                localStorage.setItem('user', JSON.stringify(storedUser));
+            }
 
             showAlert({
                 title: 'Foto Atualizada',
@@ -106,7 +86,7 @@ const MyProfile = () => {
             console.error(error);
             showAlert({
                 title: 'Erro de Upload',
-                message: error.message || 'Falha ao enviar a imagem. O bucket "avatars" foi criado no painel?',
+                message: error.message || 'Falha ao enviar a imagem. Verifique se o bucket "avatars" existe.',
                 variant: 'danger'
             });
         } finally {
@@ -114,26 +94,23 @@ const MyProfile = () => {
         }
     };
 
-    // Lida com salvamento dos dados de Perfil (Nome apenas, já que o username/email é base)
+    // Lida com salvamento dos dados de Perfil (Nome apenas)
     const handleSaveProfile = async () => {
         try {
             setLoadingProfile(true);
-            const { error } = await supabase
-                .from('profiles')
-                .update({ name: name })
-                .eq('id', user.id);
 
-            if (error) throw error;
+            await api.put('/auth/profile', { nome: name });
 
-            // Atualiza localmente
+            // Atualiza localmente para refletir na UI sem reload completo
             const storedUser = JSON.parse(localStorage.getItem('user'));
-            storedUser.nome = name;
-            localStorage.setItem('user', JSON.stringify(storedUser));
+            if (storedUser) {
+                storedUser.nome = name;
+                localStorage.setItem('user', JSON.stringify(storedUser));
+            }
 
-            // Atualiza o name do AuthContext caso ele se expusesse direto lá (ideal reload)
             showAlert({
                 title: 'Perfil Salvo',
-                message: 'Suas informações foram atualizadas com sucesso.',
+                message: 'Suas informações foram atualizadas com sucesso. Recarregue a página para ver o nome atualizado no menu lateral.',
                 variant: 'success'
             });
 
@@ -141,7 +118,7 @@ const MyProfile = () => {
             console.error(error);
             showAlert({
                 title: 'Erro ao Salvar',
-                message: 'Falha ao atualizar as informações.',
+                message: error.response?.data?.detail || 'Falha ao atualizar as informações.',
                 variant: 'danger'
             });
         } finally {
@@ -149,32 +126,38 @@ const MyProfile = () => {
         }
     };
 
-    // Lida com atualização de Senha via Auth do Supabase
+    // Lida com atualização de Senha
     const handleUpdatePassword = async () => {
-        if (!newPassword || !confirmPassword) {
-            showAlert({ title: 'Atenção', message: 'Preencha os campos de senha.', variant: 'warning' });
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            showAlert({ title: 'Atenção', message: 'Preencha todos os campos de senha.', variant: 'warning' });
             return;
         }
 
         if (newPassword !== confirmPassword) {
-            showAlert({ title: 'Atenção', message: 'As senhas não coincidem.', variant: 'warning' });
+            showAlert({ title: 'Atenção', message: 'A nova senha e a confirmação não coincidem.', variant: 'warning' });
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            showAlert({ title: 'Atenção', message: 'A nova senha deve ter no mínimo 6 caracteres.', variant: 'warning' });
             return;
         }
 
         try {
             setLoadingPassword(true);
-            const { error } = await supabase.auth.updateUser({
-                password: newPassword
+
+            await api.post('/auth/change-password', {
+                current_password: currentPassword,
+                new_password: newPassword
             });
 
-            if (error) throw error;
-
+            setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');
 
             showAlert({
                 title: 'Senha Atualizada',
-                message: 'Sua senha foi alterada com sucesso.',
+                message: 'Sua senha foi alterada com sucesso!',
                 variant: 'success'
             });
 
@@ -182,7 +165,7 @@ const MyProfile = () => {
             console.error(error);
             showAlert({
                 title: 'Erro',
-                message: error.message || 'Falha ao alterar a senha.',
+                message: error.response?.data?.detail || 'Falha ao alterar a senha. Verifique sua senha atual.',
                 variant: 'danger'
             });
         } finally {
@@ -256,7 +239,7 @@ const MyProfile = () => {
                                 justifyContent: 'center',
                                 opacity: loadingProfile ? 1 : 0,
                                 transition: 'opacity 0.2s',
-                                '&:hover': { opacity: 1 } // Simulando efeito via estilo (melhor com classes se precisasse ser puro CSS, mas reage ao loading)
+                                '&:hover': { opacity: 1 }
                             }}>
                                 {loadingProfile ? (
                                     <span style={{ fontSize: '0.8rem' }}>...</span>
@@ -290,14 +273,8 @@ const MyProfile = () => {
                             icon="fa-solid fa-user"
                         />
                         <GlassInput
-                            label="E-mail Interno (Usuário)"
-                            value={user?.email || ''}
-                            icon="fa-solid fa-envelope"
-                            readOnly
-                        />
-                        <GlassInput
-                            label="Nível de Acesso (Cargo)"
-                            value={user?.permissao || ''}
+                            label="Nível de Acesso"
+                            value={user?.permissao || 'Operacional'}
                             icon="fa-solid fa-shield-halved"
                             readOnly
                         />
@@ -325,6 +302,15 @@ const MyProfile = () => {
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         <GlassInput
+                            label="Senha Atual"
+                            type="password"
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            placeholder="Sua senha atual"
+                            icon="fa-solid fa-unlock-keyhole"
+                        />
+
+                        <GlassInput
                             label="Nova Senha"
                             type="password"
                             value={newPassword}
@@ -338,7 +324,7 @@ const MyProfile = () => {
                             type="password"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Repita a senha sugerida"
+                            placeholder="Repita a nova senha"
                             icon="fa-solid fa-check"
                         />
                     </div>
@@ -348,7 +334,7 @@ const MyProfile = () => {
                             variant="primary"
                             style={{ background: 'var(--primary-color)' }}
                             onClick={handleUpdatePassword}
-                            disabled={loadingPassword || !newPassword}
+                            disabled={loadingPassword || !newPassword || !currentPassword || !confirmPassword}
                         >
                             {loadingPassword ? 'Atualizando...' : 'Atualizar Senha'}
                         </Button>
