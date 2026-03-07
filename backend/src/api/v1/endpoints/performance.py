@@ -100,8 +100,13 @@ async def get_my_performance(user_info: tuple = Depends(get_current_user_from_co
 
         periodo_label = "Sem competência aberta"
         if competencia:
-            mes_nome = _nome_mes(competencia["mes"])
-            periodo_label = f"{mes_nome}/{competencia['ano']}"
+            try:
+                mes_num = int(competencia.get("mes", hoje.month))
+                ano_num = competencia.get("ano", hoje.year)
+                mes_nome = _nome_mes(mes_num)
+                periodo_label = f"{mes_nome}/{ano_num}"
+            except Exception:
+                periodo_label = "Erro ao ler competência"
 
         # ── 3. Todas as tarefas do funcionário ───────────────────────────────
         # Buscamos as tarefas vinculadas
@@ -159,13 +164,14 @@ async def get_my_performance(user_info: tuple = Depends(get_current_user_from_co
             comp_ref = exec_p.get("rh_competencias") or {}
             
             dias_prazo = t_root.get("dias_prazo") or 28
-            mes_c = comp_ref.get("mes", hoje.month)
-            ano_c = comp_ref.get("ano", hoje.year)
-            
             try:
-                dt_limite = date(ano_c, mes_c, min(dias_prazo, 28))
-            except:
-                dt_limite = date(ano_c, mes_c, 28)
+                mes_c = int(comp_ref.get("mes", hoje.month))
+                ano_c = int(comp_ref.get("ano", hoje.year))
+                d_prazo = int(min(dias_prazo, 28))
+                dt_limite = date(ano_c, mes_c, d_prazo)
+            except Exception:
+                # Fallback seguro para data de limite
+                dt_limite = date(hoje.year, hoje.month, 28)
 
             status = t["status"]
             concl_em = t.get("concluido_em")
