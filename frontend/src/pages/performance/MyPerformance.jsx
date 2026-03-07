@@ -77,6 +77,7 @@ const MyPerformance = () => {
     if (!stats) return <div className={styles.error}>Ops! Não conseguimos carregar seus dados.</div>;
 
     const {
+        kpis = {},
         eficiencia = {},
         tendencia = [],
         metas = {},
