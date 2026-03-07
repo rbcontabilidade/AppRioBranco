@@ -76,15 +76,13 @@ const MyPerformance = () => {
 
     if (!stats) return <div className={styles.error}>Ops! Não conseguimos carregar seus dados.</div>;
 
-    const {
-        kpis = {},
-        eficiencia = {},
-        tendencia = [],
-        metas = {},
-        tarefas = [],
-        competencia = {},
-        funcionario = {}
-    } = stats;
+    const kpis = stats.kpis || {};
+    const eficiencia = stats.eficiencia || {};
+    const tendencia = stats.tendencia || [];
+    const metas = stats.metas || {};
+    const tarefas = stats.tarefas || [];
+    const competencia = stats.competencia || {};
+    const funcionario = stats.funcionario || {};
     
     // Computando KPIs baseados puramente no array de tarefas atreladas à competência
     const computedKPIs = useMemo(() => {
