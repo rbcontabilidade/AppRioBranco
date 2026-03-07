@@ -10,8 +10,7 @@ key = os.environ.get("SUPABASE_KEY")
 supabase: Client = create_client(url, key)
 
 sql = """
-ALTER TABLE rh_processos ADD COLUMN IF NOT EXISTS frequencia VARCHAR(50) DEFAULT 'Mensal';
-ALTER TABLE rh_tarefas ADD COLUMN IF NOT EXISTS dias_prazo INTEGER DEFAULT 0;
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 """
 
 try:

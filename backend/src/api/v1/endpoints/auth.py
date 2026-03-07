@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from typing import Optional
@@ -148,7 +148,7 @@ async def get_me(user_info: tuple = Depends(get_current_user_from_cookie)):
     user_id, payload = user_info
     
     # Busca dados atualizados do funcionário
-    user_res = supabase.table("funcionarios").select("id, nome, ativo, cargo_id, permissao").eq("id", user_id).execute()
+    user_res = supabase.table("funcionarios").select("id, nome, ativo, cargo_id, permissao, avatar_url").eq("id", user_id).execute()
     
     if not user_res.data:
         raise HTTPException(status_code=404, detail="UsuÃ¡rio nÃ£o encontrado")
@@ -181,7 +181,8 @@ async def get_me(user_info: tuple = Depends(get_current_user_from_cookie)):
         "nome": user["nome"],
         "permissao": user_role,
         "telas_permitidas": telas,
-        "role": user_role
+        "role": user_role,
+        "avatar_url": user.get("avatar_url")
     }
 
 @router.post("/debug-login")

@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import KpiCard from '../../components/ui/KpiCard/KpiCard';
 import { GlassCard } from '../../components/ui/GlassCard/GlassCard';
 import { Button } from '../../components/ui/Button/Button';
-import { FileText, CheckCircle, CheckCircle2, PlayCircle, ChevronRight, Clock, AlertTriangle, Lock, Play, UserCheck, Calendar, ListTodo, FastForward, ChevronDown, ChevronUp, Users, ExternalLink, Search, LayoutGrid, LayoutList, Rows } from 'lucide-react';
+import { FileText, CheckCircle, CheckCircle2, PlayCircle, ChevronRight, Clock, AlertTriangle, Lock, Play, UserCheck, Calendar, ListTodo, FastForward, ChevronDown, ChevronUp, Users, ExternalLink, Search, LayoutGrid, LayoutList, Rows, Columns } from 'lucide-react';
 import Modal from '../../components/ui/Modal/Modal';
 import { api, processService } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import AdvancedDashboardView from './AdvancedDashboardView';
 
 const Dashboard = () => {
     const { profile, isAdmin } = useAuth(); // Alterado de user para profile e usamos a variável centralizada isAdmin
@@ -810,7 +811,8 @@ const Dashboard = () => {
                                     {[
                                         { id: 'normal', icon: <Rows size={16} />, label: 'Lista' },
                                         { id: 'compact', icon: <LayoutList size={16} />, label: 'Compacto' },
-                                        { id: 'grid', icon: <LayoutGrid size={16} />, label: 'Grade' }
+                                        { id: 'grid', icon: <LayoutGrid size={16} />, label: 'Grade' },
+                                        { id: 'advanced', icon: <Columns size={16} />, label: 'Avançado' }
                                     ].map(mode => (
                                         <button
                                             key={mode.id}
@@ -927,6 +929,10 @@ const Dashboard = () => {
                                                 Nenhuma tarefa corresponde à busca ou filtro de status.
                                             </GlassCard>
                                         );
+                                    }
+
+                                    if (viewMode === 'advanced') {
+                                        return <AdvancedDashboardView tasks={filteredTasks} onCompleteTask={handleCompleteTask} isAdmin={isAdmin} />;
                                     }
 
                                     // 1. Agrupar por NOME DO PROCESSO (Nível 1)
