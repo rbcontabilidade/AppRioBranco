@@ -7,6 +7,7 @@ import Modal from '../../components/ui/Modal/Modal';
 import { api, processService } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import AdvancedDashboardView from './AdvancedDashboardView';
+import KanbanDashboardView from './KanbanDashboardView';
 
 const Dashboard = () => {
     const { profile, isAdmin } = useAuth(); // Alterado de user para profile e usamos a variável centralizada isAdmin
@@ -812,7 +813,8 @@ const Dashboard = () => {
                                         { id: 'normal', icon: <Rows size={16} />, label: 'Lista' },
                                         { id: 'compact', icon: <LayoutList size={16} />, label: 'Compacto' },
                                         { id: 'grid', icon: <LayoutGrid size={16} />, label: 'Grade' },
-                                        { id: 'advanced', icon: <Columns size={16} />, label: 'Avançado' }
+                                        { id: 'advanced', icon: <Columns size={16} />, label: 'Avançado' },
+                                        { id: 'kanban', icon: <LayoutList size={16} style={{transform: 'rotate(90deg)'}} />, label: 'Kanban' }
                                     ].map(mode => (
                                         <button
                                             key={mode.id}
@@ -933,6 +935,10 @@ const Dashboard = () => {
 
                                     if (viewMode === 'advanced') {
                                         return <AdvancedDashboardView tasks={filteredTasks} onCompleteTask={handleCompleteTask} isAdmin={isAdmin} />;
+                                    }
+                                    
+                                    if (viewMode === 'kanban') {
+                                        return <KanbanDashboardView tasks={filteredTasks} onCompleteTask={handleCompleteTask} isAdmin={isAdmin} />;
                                     }
 
                                     // 1. Agrupar por NOME DO PROCESSO (Nível 1)
