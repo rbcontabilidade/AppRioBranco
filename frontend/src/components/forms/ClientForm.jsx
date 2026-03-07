@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GlassInput } from '../ui/GlassInput/GlassInput';
 import { GlassSelect } from '../ui/GlassSelect/GlassSelect';
 import { Button } from '../ui/Button/Button';
@@ -8,6 +8,7 @@ import { Info, MapPin, Key, Shield, HardDrive, Mail, Phone, ExternalLink, Search
 export const ClientForm = ({ initialData, onSuccess, onCancel }) => {
     // Abas do formulário
     const [activeTab, setActiveTab] = useState('geral');
+    const tabsContainerRef = useRef(null);
 
     // Estado Completo Espelhando o Backend Python (models/cliente.py)
     const [formData, setFormData] = useState({
@@ -179,7 +180,9 @@ export const ClientForm = ({ initialData, onSuccess, onCancel }) => {
     const isEditMode = !!initialData;
 
     const renderTabs = () => (
-        <div style={{
+        <div 
+            ref={tabsContainerRef}
+            style={{
             display: 'flex',
             gap: '8px',
             borderBottom: '1px solid rgba(255,255,255,0.1)',
@@ -198,7 +201,33 @@ export const ClientForm = ({ initialData, onSuccess, onCancel }) => {
                 <button
                     key={tab.id}
                     type="button"
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={(e) => {
+                        setActiveTab(tab.id);
+                        
+                        // Rolar para o final se for uma das últimas abas
+                        if (['acessos', 'drive', 'processos'].includes(tab.id)) {
+                            setTimeout(() => {
+                                if (tabsContainerRef.current) {
+                                    tabsContainerRef.current.scrollTo({
+                                        left: tabsContainerRef.current.scrollWidth,
+                                        behavior: 'smooth'
+                                    });
+                                }
+                            }, 100);
+                        } else {
+                            // Opcional: rolar para o início se clicar nas primeiras
+                            if (['geral', 'inscricoes'].includes(tab.id)) {
+                                setTimeout(() => {
+                                    if (tabsContainerRef.current) {
+                                        tabsContainerRef.current.scrollTo({
+                                            left: 0,
+                                            behavior: 'smooth'
+                                        });
+                                    }
+                                }, 100);
+                            }
+                        }
+                    }}
                     style={{
                         padding: '10px 20px',
                         background: 'transparent',
