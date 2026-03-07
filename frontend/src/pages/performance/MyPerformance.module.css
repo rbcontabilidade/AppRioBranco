@@ -350,3 +350,386 @@
     gap: 24px;
     margin-top: 24px;
 }
+
+/* ─────────────────────────────────────────────────────────
+   NOVOS ESTILOS - EVOLUÇÃO, GAMIFICAÇÃO E SMART LIST
+───────────────────────────────────────────────────────── */
+
+/* Filtros do Header */
+.filterStrip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 16px;
+    align-items: center;
+}
+
+.filterSelect {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(0,0,0,0.1);
+    background: white;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    outline: none;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.filterSelect:hover {
+    border-color: var(--primary-color);
+}
+
+.actionButton {
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: rgba(var(--primary-rgb), 0.1);
+    color: var(--primary-color);
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.actionButton:hover {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* Summary Strip (6 KPIs horizontais) */
+.summaryGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+}
+
+.summaryCard {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border-left: 4px solid transparent;
+}
+
+.summaryCard.green { border-left-color: #10b981; }
+.summaryCard.yellow { border-left-color: #f59e0b; }
+.summaryCard.red { border-left-color: #ef4444; }
+.summaryCard.blue { border-left-color: #3b82f6; }
+
+.summaryCardLabel {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.summaryCardValue {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.summaryCardSub {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* Evolution Block */
+.evolutionTitle {
+    font-size: 1.25rem;
+    font-weight: 800;
+    margin-bottom: 16px;
+    color: var(--text-primary);
+}
+
+.evolutionText {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+    line-height: 1.5;
+}
+
+.evolutionGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+}
+
+@media (max-width: 900px) {
+    .evolutionGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.miniTrend {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 12px;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+.miniTrendInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.miniTrendLabel {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.miniTrendValue {
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+.miniTrendIndicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+/* Gamification Area */
+.gamificationGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+@media (max-width: 900px) {
+    .gamificationGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.gamificationCol {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.gamificationColTitle {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+.badgeItem {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.badgeItem.locked {
+    opacity: 0.5;
+    background: transparent;
+    border: 1px dashed rgba(0,0,0,0.1);
+}
+
+.badgeIcon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-color);
+    color: white;
+    flex-shrink: 0;
+}
+
+.badgeItem.locked .badgeIcon {
+    background: #e2e8f0;
+    color: #94a3b8;
+}
+
+.badgeInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.badgeName {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.badgeDesc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* Immediate Attention */
+.attentionGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+}
+
+.attentionCard {
+    padding: 16px;
+    background: rgba(239, 68, 68, 0.05); /* very light red */
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.attentionCard.warning {
+    background: rgba(245, 158, 11, 0.05);
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.attentionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.attentionTitle {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.attentionMeta {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.attentionUrgency {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+.attentionUrgency.high {
+    background: #fef2f2;
+    color: #ef4444;
+}
+
+.attentionUrgency.medium {
+    background: #fffbeb;
+    color: #d97706;
+}
+
+.attentionActions {
+    display: flex;
+    gap: 8px;
+    margin-top: auto;
+}
+
+.btnActionOutline {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid rgba(0,0,0,0.1);
+    background: white;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btnActionOutline:hover {
+    background: #f8fafc;
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+/* Smart Demand Tabs */
+.smartTabsContainer {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.smartTab {
+    padding: 8px 16px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.smartTab:hover {
+    background: white;
+    border-color: rgba(0, 0, 0, 0.1);
+}
+
+.smartTab.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+/* Tabela Smart Demand */
+.smartTableWrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.smartTable {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.smartTable th {
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+.smartTable td {
+    padding: 16px;
+    font-size: 0.85rem;
+    border-bottom: 1px solid rgba(0,0,0,0.02);
+    vertical-align: middle;
+}
+
+.smartTable tr:last-child td {
+    border-bottom: none;
+}
+
+.actionCell {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
