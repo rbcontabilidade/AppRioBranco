@@ -16,9 +16,7 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 # Define a variável de ambiente para que o Python encontre os módulos na pasta backend
 ENV PYTHONPATH=/app/backend
 
-# O Hugging Face Spaces espera que o servidor rode na porta 7860
-EXPOSE 7860
+WORKDIR /app/backend
 
 # Comando para iniciar o servidor FastAPI
-# Note que usamos backend.src.main:app pois o PYTHONPATH inclui /app/backend
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "7860"]

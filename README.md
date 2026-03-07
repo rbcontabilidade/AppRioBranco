@@ -1,3 +1,12 @@
+---
+title: AppRioBranco API
+emoji: 🚀
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+---
+
 # FiscalApp - Sistema de Gestão Fiscal
 
 Este repositório contém o sistema **FiscalApp**, composto por um backend em Python (FastAPI) e um frontend em React (Vite).
