@@ -1,0 +1,64 @@
+.tableContainer {
+    margin-top: 32px;
+}
+
+.loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+    font-size: 1.1rem;
+    color: var(--text-muted);
+}
+
+.badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+.badgeOpen {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.badgeClosed {
+    background-color: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+}
+
+.badgeArchived {
+    background-color: rgba(100, 116, 139, 0.1);
+    color: #64748b;
+}
+
+.actionButtons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.formContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.infoNote {
+    margin-top: 24px;
+    padding: 1.25rem;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-glass);
+    border-left: 4px solid var(--primary);
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+    color: var(--text-main);
+    line-height: 1.6;
+}
+
+.infoNote strong {
+    color: var(--primary-light);
+}

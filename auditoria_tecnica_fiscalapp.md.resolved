@@ -1,0 +1,624 @@
+# 🔍 Auditoria Técnica e Estratégica — FiscalApp
+**Data da auditoria:** 05/03/2026 | **Nível:** Arquitetural / Principal Engineer  
+**Escopo:** Read-only, sem modificações de código
+
+---
+
+## SEÇÃO 1 — VISÃO GERAL DO SISTEMA
+
+### O que o sistema faz
+O **FiscalApp** é uma plataforma de gestão operacional para **escritórios de contabilidade e serviços fiscais**. Ele gerencia o ciclo de vida mensal de entregas para uma carteira de clientes: define processos e tarefas reutilizáveis (templates), instancia esses processos a cada competência (virada de mês), atribui responsáveis, acompanha progresso via dashboards e controla permissões por cargo.
+
+### Problema real que resolve
+Escritórios de contabilidade possuem dezenas de clientes com obrigações mensais (fechamento fiscal, apuração de impostos, folha de pagamento etc.). Sem uma ferramenta adequada, o controle é feito em planilhas ou sistemas genéricos. O FiscalApp centraliza: **quem faz o quê, para qual cliente, até quando**, acompanhado de evidências (checklists e anotações).
+
+### Grupos de usuários
+| Perfil | Papel |
+|---|---|
+| **Admin / Manager** | Acesso total: gerencia clientes, equipe, processos, competências, configurações |
+| **Gerente / Supervisor** | Visão gerencial: dashboards, relatórios de eficiência, equipe |
+| **Operacional** | Executa tarefas, marca checklists, anota observações |
+
+### Categoria do produto
+**SaaS interno / ferramenta corporativa** — hospedada em Vercel (frontend) com backend em processo de containerização (Dockerfile presente). Modelo B2B voltado para operação interna do escritório.
+
+### Fluxo do sistema (Ponta a Ponta)
+```
+[Admin cria Processo Template]
+        ↓
+[Define Tarefas com Checklists, Dependências, Responsáveis, Prazo]
+        ↓
+[Vincula Clientes ao Processo]
+        ↓
+[Abertura de Competência (mês/ano)]
+        ↓
+[Stored Procedure gera automaticamente as Execuções para todos os clientes vinculados]
+        ↓
+[Funcionários veem sua fila de tarefas no "Operacional" / "Activity Queue"]
+        ↓
+[Executam tarefas, marcam checklists, adicionam anotações]
+        ↓
+[Tarefa CONCLUÍDA → desbloqueia a tarefa dependente seguinte]
+        ↓
+[Dashboard e KPIs refletem progresso em tempo real]
+        ↓
+[Fechamento da Competência]
+```
+
+### Integrações Externas
+| Serviço | Papel |
+|---|---|
+| **Supabase** | Banco de dados PostgreSQL + autenticação + storage |
+| **Vercel** | Deploy do frontend como SPA estática |
+| **Google Drive** | Link externo por cliente (campo `drive_link`) — sem integração via API |
+| **Font Awesome / Chart.js** | Bibliotecas front-end externas via CDN |
+
+### Módulos Core
+- [api/v1/endpoints/processos.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/processos.py) — Lógica central de processos e execução
+- [api/v1/endpoints/auth.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/auth.py) — Autenticação JWT e RBAC
+- [core/security.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/core/security.py) — Criptografia e validação de tokens
+- [core/database.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/core/database.py) — Conexão com Supabase (dois clientes: anon e service_role)
+- [frontend/src/app.js](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js) — Controlador UI monolítico (5.930 linhas)
+- [sql/08_gestao_processos.sql](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/sql/08_gestao_processos.sql) — Schema central e stored procedure `gerador_nova_competencia`
+
+---
+
+## SEÇÃO 2 — MAPEAMENTO DE ARQUITETURA
+
+### Camadas do Sistema
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    FRONTEND (Vercel)                      │
+│  ┌───────────────────────┐  ┌─────────────────────────┐  │
+│  │  Legado: app.js       │  │  Novo: React/JSX (Vite) │  │
+│  │  (5.930 linhas, SPA   │  │  (Migração em andamento)│  │
+│  │  JavaScript puro)     │  │  src/pages/, components/│  │
+│  └───────────────────────┘  └─────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
+                        │ HTTP (Axios / Fetch)
+                        │ Bearer Token (Authorization header)
+┌─────────────────────────────────────────────────────────┐
+│                BACKEND (FastAPI / Python)                 │
+│  main.py  →  CORS  →  Routers (11 endpoints)             │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────────┐  │
+│  │ auth     │ │processos │ │clientes  │ │performance │  │
+│  │ /api/auth│ │/api/proc  │ │/api/cli  │ │/api/perf   │  │
+│  └──────────┘ └──────────┘ └──────────┘ └────────────┘  │
+│  + funcionarios, setores, cargos, meses, execucoes, misc │
+│                                                          │
+│  core/: database.py, security.py                         │
+│  crud/: camada de acesso a dados (parcialmente utilizada)│
+└─────────────────────────────────────────────────────────┘
+                        │ Supabase-py SDK (REST / PostgREST)
+┌─────────────────────────────────────────────────────────┐
+│                SUPABASE (PostgreSQL + Auth)               │
+│  • Banco de dados relacional (10+ tabelas)               │
+│  • Row Level Security (RLS) — aplicado via SQL           │
+│  • Stored Procedures em PL/pgSQL                         │
+│  • Gatilhos (triggers) de atualização automática         │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Padrão Arquitetural
+**Monólito Modular com tendência a transição para modular React**  
+- Backend: ✅ bem modulado em routers FastAPI  
+- Frontend: ⚠️ Monolito JS em coexistência com estrutura React nascente — situação de risco
+
+### Comunicação entre Componentes
+| Canal | Como |
+|---|---|
+| Frontend ↔ Backend | REST/HTTP com JWT Bearer Token no header |
+| Backend ↔ Supabase | SDK oficial `supabase-py` via PostgREST |
+| Frontend ↔ Supabase | Supabase-js SDK (para auth e dados reais nas páginas React novas) |
+| Autenticação | Cookie HTTPOnly + Bearer Token (dois mecanismos simultâneos) |
+
+### Riscos Arquiteturais Identificados
+1. **Duplicidade de frontends** — app.js e componentes React coexistem sem estratégia clara de convergência
+2. **Dois mecanismos de autenticação** — cookie legado + Bearer token, com fallback arriscado
+3. **CORS permissivo em múltiplas portas** — 5 origens localhost hardcoded
+4. **Sem camada de cache** — todas as queries vão direto ao banco
+
+---
+
+## SEÇÃO 3 — ANÁLISE DA ESTRUTURA DO REPOSITÓRIO
+
+### Estrutura Global
+```
+FiscalApp/
+├── sistema_ok/           ← Versão ativa/produção
+│   ├── backend/
+│   │   ├── src/
+│   │   │   ├── api/v1/endpoints/   (11 arquivos de rotas)
+│   │   │   ├── core/               (database, security)
+│   │   │   ├── crud/               (acesso a dados — subutilizado)
+│   │   │   ├── models/             (schemas Pydantic)
+│   │   │   └── services/           (quase vazio)
+│   │   ├── sql/                    (13 scripts de migração)
+│   │   ├── tests/                  (pouco utilizado)
+│   │   └── scripts/                (utilitários)
+│   └── frontend/
+│       ├── src/
+│       │   ├── app.js              ← MONOLITO (5.930 linhas, 236KB)
+│       │   ├── pages/              (React — em construção)
+│       │   ├── components/         (React — em construção)
+│       │   ├── contexts/           (AuthContext)
+│       │   └── services/           (api.js)
+│       └── index.html              ← MONOLITO (165KB de HTML)
+└── BK_sistema/           ← Backup (versão anterior, 107 filhos — não deve ser mantida)
+```
+
+### Arquivos Mais Críticos
+| Arquivo | Tamanho | Papel | Risco |
+|---|---|---|---|
+| [frontend/src/app.js](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js) | 236KB / 5.930 linhas | Controlador UI completo | 🔴 ALTO |
+| [frontend/index.html](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/index.html) | 165KB | HTML + template da SPA | 🔴 ALTO |
+| [api/v1/endpoints/processos.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/processos.py) | 25KB / 526 linhas | Lógica core de execução | 🟡 MÉDIO |
+| [sql/08_gestao_processos.sql](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/sql/08_gestao_processos.sql) | 9.5KB | Schema e stored proc | 🟡 MÉDIO |
+| [core/security.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/core/security.py) | 4.2KB | JWT e criptografia | 🟡 MÉDIO |
+| [api/v1/endpoints/auth.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/auth.py) | 9KB / 230 linhas | Autenticação e RBAC | 🟡 MÉDIO |
+
+### Problemas de Estrutura
+- ❌ [app.js](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js) e [index.html](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/index.html) são arquivos monolíticos impossíveis de manter de forma colaborativa
+- ❌ Pasta `BK_sistema` dentro do repositório versionado (aumenta ruído e não tem valor como backup real)
+- ❌ Arquivos de debug no backend raiz ([debug_manager.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/debug_manager.py), [check_cols.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/check_cols.py), [check_schema.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/check_schema.py), [check_data.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/check_data.py), [check_constraints.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/check_constraints.py), [apply_sql_rpc.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/apply_sql_rpc.py)) — parecem ferramentas de desenvolvimento que não deveriam estar no repositório
+- ❌ Logs de backend versionados ([log_backend.txt](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/log_backend.txt), [log_backend_new.txt](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/log_backend_new.txt))
+- ❌ `models/` e `crud/` são parcialmente redundantes com os schemas inline dos endpoints
+- ⚠️ Camada `services/` quase vazia quando deveria conter a lógica de negócio
+
+---
+
+## SEÇÃO 4 — ARQUITETURA DE DADOS
+
+### Tecnologia
+**PostgreSQL via Supabase** com extensões RLS (Row Level Security), triggers e stored procedures PL/pgSQL.
+
+### Schema Principal (Sistema de Processos)
+
+```
+rh_processos (Template de Processo)
+    │
+    ├── rh_tarefas (Template de Tarefas)
+    │       ├── rh_tarefas_responsaveis (Quem é responsável pelo template)
+    │       └── rh_tarefas_checklists   (Itens de checklist do template)
+    │
+    └── rh_processos_clientes (Vínculo: Processo ↔ Cliente)
+            │
+            └── rh_execucao_processos (Instância mensal criada por competência)
+                    │
+                    └── rh_execucao_tarefas (Cópia concreta da tarefa)
+                            ├── rh_execucao_tarefas_responsaveis
+                            └── rh_execucao_checklists (Cópia do checklist com is_checked)
+
+rh_competencias (Mês/Ano de trabalho — ABERTA/FECHADA)
+```
+
+### Outras Tabelas
+```
+clientes         → Cadastro de clientes (razao_social, drive_link, ativo, ...)
+funcionarios     → Equipe (nome, senha, cargo_id, ativo, permissao)
+cargos_permissoes → RBAC: nome_cargo, telas_permitidas (array JSON)
+setores          → Setores internos
+meses            → Controle de meses/competências (tabela legada)
+rotinas_base     → Possivelmente legada
+execucoes        → Possivelmente legada (paralela ao rh_execucao_*)
+logs             → Auditoria
+global_config    → Configurações do sistema
+```
+
+### Pontos Positivos do Schema
+- ✅ Separação clara entre **template** e **execução** — excelente decisão arquitetural
+- ✅ Constraints de unicidade (`UNIQUE(mes, ano)`, `UNIQUE(processo_id, cliente_id, competencia_id)`)  
+- ✅ Uso correto de `ON DELETE CASCADE` e `ON DELETE RESTRICT`
+- ✅ Timestamps com timezone UTC em todas as tabelas
+- ✅ Stored procedure `gerador_nova_competencia` é bem estruturada
+
+### Riscos de Dados
+- ⚠️ Coluna `is_active` em `rh_tarefas` sem índice — pode afetar queries de filtragem
+- ⚠️ `dias_prazo` é usado como dia do mês (nº, ex: 15 = dia 15) — semanticamente confuso
+- ⚠️ `rh_execucao_tarefas.status` é VARCHAR sem enum constraint — valores inválidos possíveis
+- ⚠️ `cargos_permissoes.telas_permitidas` é armazenado como JSON/string — sem validação estrutural
+- ⚠️ Tabelas `meses` e `execucoes` parecem legadas e podem ser duplicações das tabelas `rh_competencias` e `rh_execucao_*`
+- ❌ Senhas em `funcionarios.senha` podem ainda estar em texto plano em registros legados (fallback explícito no código)
+
+---
+
+## SEÇÃO 5 — ANÁLISE DE WORKFLOWS
+
+### Workflow 1: Criação de Processo (Admin)
+```
+Acessa tela "Rotinas" → Clica "Novo Processo" → Define nome/descrição/frequência 
+→ Adiciona Tarefas (ordem, prazo, responsáveis, checklist) → Define dependências 
+→ Salva → Backend: POST /api/processos → Cria rh_processos + rh_tarefas + relações
+```
+**Avaliação:** ✅ Funcional. Suporte a dependências entre tarefas é robusto.
+
+### Workflow 2: Vinculação de Clientes a Processos
+```
+Acessa "Clientes" → Abre cliente → Aba "Processos" → Marca processos desejados
+→ Backend: POST /api/processos/clientes/{client_id}/{template_id}
+→ Se há competência aberta, clona execução imediatamente
+```
+**Avaliação:** ⚠️ Vinculação com clonagem imediata é inteligente, mas pode criar dados inconsistentes se a competência estiver parcialmente fechada.
+
+### Workflow 3: Abertura de Competência (Mensal)
+```
+Admin vai em "Configurações" → "Competências" → "Nova Competência" (YYYY-MM)
+→ Backend: chama stored procedure gerador_nova_competencia(mes, ano)
+→ Todos os vínculos Cliente ↔ Processo são clonados
+→ Tarefas nascem BLOQUEADAS (com dependência) ou PENDENTES (sem dependência)
+```
+**Avaliação:** ✅ Excelente design. Stored procedure garante atomicidade da geração.
+
+### Workflow 4: Execução de Tarefas (Operacional)
+```
+Funcionário acessa "Fila de Atividades" → Vê suas tarefas (PENDENTES)
+→ Clica na tarefa → Modal abre com checklist
+→ Marca itens → Conclui a tarefa
+→ Backend: PATCH /api/processos/execucao/tarefas/{id}/status
+→ Próxima tarefa dependente é desbloqueada automaticamente
+```
+**Avaliação:** ✅ Fluxo bem pensado. ⚠️ Com muitos clientes/tarefas, a "fila" pode se tornar ingerenciável sem priorização automática.
+
+### Workflow 5: Acompanhamento (Dashboard)
+```
+Admin vê KPIs: clientes ativos, processos pendentes, eficiência da equipe
+→ Filtro por competência e funcionário
+```
+**Avaliação:** ❌ KPIs de performance individual (`/api/performance/me`) retornam dados **mockados com `random.randint`** — não refletem dados reais.
+
+---
+
+## SEÇÃO 6 — ANÁLISE DE AUTOMAÇÃO
+
+### Automações Existentes
+| Mecanismo | Como funciona |
+|---|---|
+| **Stored Procedure** `gerador_nova_competencia` | Clonagem batch de todos os processos ao abrir nova competência |
+| **Trigger** `trigger_atualiza_processo` | Atualiza `atualizado_em` automaticamente em updates |
+| **Desbloqueio automático de tarefas** | Ao concluir tarefa, backend desbloqueia dependentes |
+| **Checklist → EM ANDAMENTO** | Ao marcar qualquer item, status da tarefa muda automaticamente |
+
+### Automações Ausentes (Oportunidades)
+| Oportunidade | Impacto | Complexidade |
+|---|---|---|
+| **Abertura automática de competências** (cron job mensal) | 🔴 Alto | Baixa |
+| **Notificações de prazo via email/webhook** quando tarefa está próxima do vencimento | 🔴 Alto | Média |
+| **Alertas de tarefas atrasadas** (checagem diária) | 🟡 Médio | Baixa |
+| **Relatório mensal automático** por email ao fechar competência | 🟡 Médio | Média |
+| **Sincronização com Google Drive** via API (criar pastas por cliente automaticamente) | 🟢 Diferencial | Alta |
+
+---
+
+## SEÇÃO 7 — ANÁLISE DE UX E DESIGN DE PRODUTO
+
+### Pontos Positivos
+- ✅ Sistema de toasts de feedback (não usa `alert()` do browser)
+- ✅ Sidebar de navegação com controle de permissões por tela
+- ✅ Splash screen com timeout de segurança
+- ✅ Persistent state: competência selecionada salva em `localStorage`
+
+### Problemas Identificados
+
+**Carga cognitiva alta**
+- O conceito de "Processo Template" vs "Execução" pode ser confuso para usuários não-técnicos
+- A nomenclatura inconsiste: "Rotinas" no menu, mas "Processos" no código
+
+**Fragmentação de interfaces**
+- Dois sistemas de UI coexistindo (app.js vs React): risco de inconsistência visual entre telas
+- Algumas telas novas (React) podem ter aparência diferente das legadas (HTML/app.js)
+
+**Fila de tarefas sem priorização**
+- A "Fila de Atividades" não tem ordenação automática por urgência ou prazo
+- Sem indicador visual de tarefas atrasadas
+
+**Performance individual mockada**
+- `/api/performance/me` retorna dados aleatórios — usuário pode ver métricas irreais
+
+**Gestão de competências manual**
+- Admin precisa abrir manualmente cada competência todo mês — ponto de falha operacional
+
+**Notificações não implementadas**
+- Botão de notificações mostra toast "em breve" — expectativa frustrada
+
+---
+
+## SEÇÃO 8 — ANÁLISE DE PERFORMANCE
+
+### Problema Crítico: N+1 Queries
+
+No endpoint `GET /api/processos/execucao/me` (linha 387-391):
+```python
+# Para cada tarefa na lista:
+res_count = supabase.table("rh_execucao_tarefas").select("id", count="exact")
+            .eq("execucao_processo_id", t['execucao_processo_id']).execute()
+res_done = supabase.table("rh_execucao_tarefas").select("id", count="exact")
+            .eq("execucao_processo_id", ...).eq("status", "CONCLUIDA").execute()
+```
+Para um escritório com 50 clientes × 5 processos = **250 tarefas na fila → 500 queries extras** no banco a cada carregamento! O mesmo problema existe em `GET /api/processos/execucao/todos`.
+
+### Arquivo app.js (236KB)
+- O JavaScript não comprimido de 236KB + index.html de 165KB totaliza **~400KB de payload inicial**
+- Sem code splitting, todo o UI é carregado de uma vez
+- Prejudica o LCP (Largest Contentful Paint) e métricas de Core Web Vitals
+
+### Filtros feitos em memória Python
+Em [performance.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/performance.py), os dados de status de tarefas são carregados todos para memória e filtrados via list comprehension Python ao invés de filtrar direto no banco via `.eq()`.
+
+### Sem cache
+Nenhum mecanismo de cache (Redis, memória, etc.) — toda requisição vai ao banco mesmo para dados que mudam raramente (lista de clientes, funcionários, processos template).
+
+---
+
+## SEÇÃO 9 — ANÁLISE DE SEGURANÇA
+
+### Autenticação
+| Aspecto | Avaliação |
+|---|---|
+| Hashing bcrypt com pré-hash SHA256 | ✅ Muito bom |
+| JWT via python-jose | ✅ Correto |
+| Cookie HTTPOnly + Secure | ✅ Bom |
+| Expiração: 24 horas | ✅ Razoável |
+
+### Riscos de Segurança Identificados
+
+> [!CAUTION]
+> **SECRET_KEY padrão hardcoded:** [core/security.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/core/security.py) linha 9:
+> ```python
+> SECRET_KEY = os.getenv("JWT_SECRET_KEY", "SUA_CHAVE_SUPER_SECRETA_PADRAO_AKDJAWIE")
+> ```
+> Se a variável de ambiente não estiver configurada, todos os tokens são gerados com uma chave conhecida publicamente. Qualquer um que leia o repositório pode forjar tokens válidos.
+
+> [!CAUTION]
+> **Senha em texto plano (fallback legado):** [security.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/core/security.py) linha 33:
+> ```python
+> if plain_password == hashed_password:
+>     return True
+> ```
+> O sistema aceita autenticação com senhas em texto plano sem hash para registros legados. Isso significa que há contas no banco de dados onde `funcionarios.senha` pode ser `"123456"` (texto puro) e o sistema aceita isso.
+
+> [!WARNING]
+> **Endpoint de debug em produção:** `/api/debug` expõe informações de configuração do Supabase (se service key está configurada, se há erros). Deve ser protegido ou removido em produção.
+
+> [!WARNING]
+> **Endpoint de debug de login:** `POST /api/auth/debug-login` devolve o payload completo recebido e todos os headers da requisição — potencial vazamento de informações em produção.
+
+> [!WARNING]
+> **CORS com múltiplas origens localhost:** Permite requisições de 10 origens diferentes (5 localhost, 5 127.0.0.1). Em produção, isso amplia a superfície de ataque.
+
+### Autorização (RBAC)
+- ✅ Permissões por tela configuráveis por cargo
+- ⚠️ A validação de permissões é feita **apenas no frontend** (menu oculto). Os endpoints de API **não verificam** se o usuário tem permissão para aquela ação — qualquer usuário autenticado pode chamar qualquer rota se souber a URL.
+- ⚠️ Lógica de `is_admin` baseada parcialmente no nome do usuário: `user.get("nome", "").lower() == "manager"` — hack de desenvolvimento que pode ser explorado.
+
+---
+
+## SEÇÃO 10 — DEPENDÊNCIAS E INFRAESTRUTURA
+
+### Backend
+| Lib | Versão | Risco |
+|---|---|---|
+| `fastapi` | 0.111.0 | 🟢 Estável |
+| `uvicorn` | 0.29.0 | 🟢 Estável |
+| [supabase](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/core/database.py#33-36) | 2.5.0 | 🟡 Versão não mais recente |
+| `pydantic` | 2.10.6 | 🟢 Estável v2 |
+| `python-jose` | 3.3.0 | 🟡 Biblioteca com manutenção reduzida |
+| `bcrypt` | 4.1.3 | 🟢 Estável |
+| `pytest` | 9.0.2 | 🟢 Dev only |
+
+### Frontend
+| Lib | Versão | Risco |
+|---|---|---|
+| `vite` | ^7.3.1 | 🟢 Muito recente |
+| `@supabase/supabase-js` | ^2.98.0 | 🟢 Recente |
+| `axios` | ^1.13.6 | 🟢 Estável |
+| `react-router-dom` | ^7.13.1 | 🟢 Recente |
+| `recharts` | ^3.7.0 | 🟢 Estável |
+
+**Externas via CDN (sem versionamento):**
+- Font Awesome, Chart.js, ChartDataLabels — sem lock de versão, risco de breaking changes
+
+### Deploy
+| Componente | Plataforma | Status |
+|---|---|---|
+| Frontend | Vercel (SPA estática) | ✅ Configurado |
+| Backend | Não configurado para deploy automático | ❌ Manual |
+| Database | Supabase (managed) | ✅ |
+| CI/CD | Nenhum | ❌ Ausente |
+
+> [!WARNING]
+> O backend **não possui pipeline de deploy**. O [Dockerfile](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/BK_sistema/Dockerfile) existe mas não há CI/CD configurado. O backend provavelmente está sendo executado manualmente em ambiente local ou em um serviço de servidor não automatizado.
+
+---
+
+## SEÇÃO 11 — DÍVIDA TÉCNICA
+
+### 🔴 Crítica
+
+| Problema | Localização | Impacto |
+|---|---|---|
+| [app.js](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js) monolítico de 5.930 linhas | [frontend/src/app.js](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js) | Impossível de manter, testar ou colaborar |
+| [index.html](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/index.html) de 165KB | [frontend/index.html](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/index.html) | Mistura HTML estrutural, CSS e templates |
+| N+1 queries crítico | [processos.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/processos.py) L.387-391 | Falha de performance em escala |
+| Erro runtime Python: `.padStart()` | [processos.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/processos.py) L.442 | `padStart` é JavaScript — esse código Python nunca executou corretamente |
+| KPIs com dados mockados (`random.randint`) | [performance.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/performance.py) | Dados falsos exibidos como reais para usuários |
+
+### 🟡 Relevante
+
+| Problema | Localização | Impacto |
+|---|---|---|
+| Dois sistemas de frontend paralelos | [app.js](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js) vs `src/pages/` | Inconsistência, confusão de manutenção |
+| `crud/` não utilizado pelos endpoints principais | Todo o backend | Abstração inútil — endpoints acessam Supabase diretamente |
+| `services/` quase vazio | `backend/src/services/` | Lógica de negócio nos endpoints — difícil testar |
+| Fallback de senha em texto plano | [security.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/core/security.py) | Risco de segurança e comportamento imprevisível |
+| `BK_sistema/` no repositório | Raiz do repo | Aumenta tamanho, cria confusão |
+| Arquivos de debug versionados | `backend/` raiz | Ruído no repositório |
+| Sem testes automatizados relevantes | `tests/` | Sem cobertura de regressão |
+
+---
+
+## SEÇÃO 12 — FORÇAS DO SISTEMA
+
+### ✅ Arquitetura de Dados Excelente
+O modelo de separação **Template ↔ Execução** é uma decisão de design sofisticada. Evita destruição de dados históricos ao editar um template, mantém rastreabilidade mensal e permite auditoria por competência.
+
+### ✅ Stored Procedure de Competência
+`gerador_nova_competencia` é uma função PL/pgSQL bem construída que garante atomicidade na geração de um novo ciclo mensal — uma operação crítica de negócio.
+
+### ✅ Backend Modular e Limpo
+O FastAPI está bem organizado com routers separados por domínio. CORS configurado, middleware correto, esquemas Pydantic para validação. Boa base para crescimento.
+
+### ✅ Segurança de Senha Robusta
+A implementação de bcrypt com pré-hash SHA256 é uma prática avançada que contorna o limite de 72 bytes do bcrypt. Isso demonstra cuidado técnico com segurança real.
+
+### ✅ Validação JWT Offline
+A decisão de validar tokens JWT localmente (sem requisição externa ao Supabase) em cada chamada é excelente para performance — elimina latência de rede em toda autenticação.
+
+### ✅ UX de Feedback Premium
+O sistema de toasts personalizados no app.js é bem implementado, com ícones, animações, tipos (success/error/warning/info) e auto-close. Muito melhor que `alert()` do browser.
+
+### ✅ Desbloqueio Automático de Dependências
+A lógica de desbloquear tarefas dependentes automaticamente ao concluir uma tarefa é elegante e bem implementada tanto no backend Python quanto na stored procedure SQL.
+
+---
+
+## SEÇÃO 13 — FRAQUEZAS DO SISTEMA
+
+### 🔴 Fraqueza Crítica 1: Frontend Monolítico
+**[app.js](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js) com 5.930 linhas** é a maior dívida técnica do sistema. Impossibilita testes unitários, dificulta colaboração, aumenta o risco de bugs regressivos e torna impossível o carregamento lazy. Qualquer manutenção neste arquivo é de alto risco.
+
+### 🔴 Fraqueza Crítica 2: N+1 Query Problem
+Para cada tarefa listada na fila operacional, são feitas 2 queries extras de contagem ao banco. Com escala modesta (200 tarefas ativas), isso representa **400 queries extras por carregamento de tela**. A performance vai degradar rapidamente conforme a base cresce.
+
+### 🔴 Fraqueza Crítica 3: Sem Autorização no Backend
+As rotas de API não verificam permissões de cargo. Quaisquer usuários autenticados (mesmo operacionais) podem deletar processos, editar clientes de todos ou acessar dados de todos os funcionários se conhecerem as URLs — o controle existe apenas no frontend (ocultação de menus).
+
+### 🟡 Fraqueza Importante 4: Dados Mockados em Produção
+O endpoint `/api/performance/me` retorna números aleatórios como se fossem dados reais de performance. Isso corrode a confiança no sistema quando os usuários percebem.
+
+### 🟡 Fraqueza Importante 5: Sem CI/CD
+Não há pipeline automatizado para testes e deploy do backend. Deployments são manuais, sem garantia de que o código testado em staging é o mesmo que chega em produção.
+
+### 🟡 Fraqueza Importante 6: Processo Manual de Competência
+A abertura de competências é manual. Se o admin esquecer de abrir no início do mês, toda a equipe não terá tarefas na fila. Um cron job resolveria isso com zero custo operacional.
+
+---
+
+## SEÇÃO 14 — ESTRATÉGIA DE MELHORIAS
+
+### 🚀 Quick Wins (Alta Impacto, Baixo Esforço)
+
+| # | Melhoria | Esforço | Impacto |
+|---|---|---|---|
+| 1 | **Remover fallback de senha em texto plano** — forçar migrção de senhas legadas | 2h | 🔴 Crítico (segurança) |
+| 2 | **Proteger SECRET_KEY** — falhar explicitamente se não configurada | 30min | 🔴 Crítico (segurança) |
+| 3 | **Substituir dados mockados** em `/api/performance/me` por dados reais | 4h | 🔴 Alto (confiança) |
+| 4 | **Corrigir bug `.padStart()` em Python** (linha 442 de processos.py) | 5min | 🔴 Bug crítico |
+| 5 | **Remover/proteger endpoints de debug** (`/api/debug`, `/api/auth/debug-login`) | 1h | 🟡 Segurança |
+| 6 | **Adicionar índice** em `rh_tarefas.is_active` | 15min | 🟡 Performance |
+| 7 | **Remover `BK_sistema/`** do repositório e usar Git para histórico | 5min | 🟢 Organização |
+
+### 🏗️ Melhorias Estruturais (Médio Prazo)
+
+| # | Melhoria | Esforço | Impacto |
+|---|---|---|---|
+| 1 | **Resolver N+1 query**: usar agregação SQL ou query única para contagem de progresso | 1-2 dias | 🔴 Performance |
+| 2 | **Implementar autorização no backend**: middleware de verificação de permissão por rota | 3-5 dias | 🔴 Segurança |
+| 3 | **Quebrar [app.js](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js) em módulos** por view (operacional.js, clientes.js, etc.) | 2-3 semanas | 🔴 Manutenibilidade |
+| 4 | **Migrar totalmente para React** com componentes isolados por feature | 1-2 meses | 🟡 Longo prazo |
+| 5 | **Implementar camada de services** no backend: mover lógica de negócio dos endpoints | 1 semana | 🟡 Arquitetura |
+| 6 | **Configurar CI/CD** (GitHub Actions para testes + deploy automático) | 1-2 dias | 🟡 DevOps |
+| 7 | **Automatizar abertura de competências** (Supabase cron ou serviço externo) | 1 dia | 🟡 Operacional |
+
+### 🤖 Melhorias Avançadas (Longo Prazo)
+
+| # | Melhoria | Impacto |
+|---|---|---|
+| 1 | **Sistema de notificações em tempo real** (WebSocket/Supabase Realtime) para alertas de prazo | Alto |
+| 2 | **Dashboard preditivo**: ML simples para prever atrasos baseado em histórico de competências | Diferencial |
+| 3 | **Integração Google Drive via API**: criar/organizar pastas de cliente automaticamente | Alto |
+| 4 | **Relatórios PDF automáticos** de fechamento de competência | Médio |
+| 5 | **App mobile** (PWA ou React Native) para executar tarefas em campo | Alto |
+
+---
+
+## SEÇÃO 15 — AVALIAÇÃO DE MATURIDADE
+
+### Classificação: **MVP → Early Product** (Transição)
+
+```
+[Prototype] → [MVP] → [★ Early Product ★] → [Growth Stage] → [Production Scale] → [Enterprise]
+```
+
+**Por que esta classificação:**
+- ✅ Funcionalidades core implementadas e funcionando (processos, tarefas, checklists, RBAC)
+- ✅ Banco de dados bem projetado com lógica de negócio real
+- ✅ Sistema em uso real (conversas mostram refinamentos contínuos em produção)
+- ⚠️ Ainda há dados mockados sendo exibidos como reais
+- ⚠️ Sem testes automatizados relevantes
+- ⚠️ Frontend em estado de transição técnica importante
+- ❌ Sem CI/CD, sem monitoramento, sem alertas automatizados
+- ❌ Bug crítico (`.padStart()`) em código Python que nunca executou corretamente
+
+O sistema resolveu os problemas-chave de um MVP (funcionamento básico do ciclo operacional) e está sendo usado em produção real, mas ainda tem fragilidades técnicas significativas que precedem a fase de crescimento escalonável.
+
+---
+
+## SEÇÃO 16 — ROADMAP DE EVOLUÇÃO
+
+### 📅 Curto Prazo (1–3 meses) — Estabilização
+
+| Prioridade | Entrega |
+|---|---|
+| P0 | Correção dos bugs críticos (padStart, dados mockados, segredos hardcoded) |
+| P0 | Implementar autorização no backend (middleware de permissão) |
+| P1 | Automatizar abertura de competências (cron Supabase/externo) |
+| P1 | Substituir dados de performance por cálculos reais |
+| P2 | Configurar CI/CD básico (GitHub Actions) |
+| P2 | Remover endpoints e arquivos de debug do código de produção |
+| P3 | Testes unitários para [security.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/core/security.py) e [processos.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/processos.py) |
+
+### 📅 Médio Prazo (3–12 meses) — Escalabilidade e Migração
+
+| Prioridade | Entrega |
+|---|---|
+| P0 | Resolver N+1 query problem (otimização crítica de banco) |
+| P1 | Migração completa do frontend para React modular (eliminar app.js) |
+| P1 | Sistema de notificações de prazo (email ou push) |
+| P2 | Dashboard de KPIs com dados históricos por competência |
+| P2 | SLA de tarefas: indicador automático de atraso |
+| P3 | Implementar cache (Redis ou Supabase RPC otimizadas) |
+
+### 📅 Longo Prazo (1–3 anos) — Produto Enterprise
+
+| Prioridade | Entrega |
+|---|---|
+| P1 | Multi-tenant (atender múltiplos escritórios na mesma plataforma) |
+| P1 | Integração com APIs fiscais (Receita Federal, SEFAZ) |
+| P2 | Módulo financeiro: faturamento por cliente |
+| P2 | Analytics preditivos: previsão de carga de trabalho |
+| P3 | App mobile para equipe em campo |
+| P3 | API pública documentada (Swagger) para integrações externas |
+
+---
+
+## SEÇÃO 17 — NOTA FINAL DO SISTEMA
+
+| Dimensão | Nota | Justificativa |
+|---|---|---|
+| **Qualidade Arquitetural** | 6.5/10 | Backend modular sólido; frontend monolítico compromete o conjunto |
+| **Escalabilidade** | 5.0/10 | Schema excelente mas N+1 query impede escala; sem cache |
+| **Manutenibilidade** | 4.5/10 | [app.js](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js) de 5.930 linhas é o gargalo principal |
+| **Usabilidade** | 7.0/10 | Fluxos bem pensados; toasts premium; gaps em mobile e notificações |
+| **Performance** | 5.0/10 | N+1 queries crítico; bundle JS pesado; sem cache |
+| **Segurança** | 5.5/10 | Bcrypt e JWT corretos; mas sem autorização backend e secrets em código |
+| **Inovação** | 7.5/10 | Modelo Template→Execução e desbloqueio automático são muito bem pensados |
+
+### 🏆 Nota Final: **5.9 / 10**
+
+**Resumo executivo:**
+O FiscalApp é um sistema com boas ideias de produto e um design de banco de dados notavelmente bem estruturado. A separação Template/Execução e o fluxo de desbloqueio automático de tarefas mostram pensamento arquitetural sofisticado. No entanto, o sistema carrega uma dívida técnica significativa no frontend (monolito de 5.930 linhas) e riscos sérios de segurança (autorização ausente no backend, segredos hardcoded). Para avançar de "Early Product" para "Growth Stage" de forma segura, o esforço imediato deve ser focado em estabilização de segurança e resolução do N+1 query, antes de qualquer nova feature.
+
+---
+*Auditoria realizada em modo read-only. Nenhum arquivo foi modificado.*  
+*Analista: Antigravity — Principal Software Architect Analysis Engine*

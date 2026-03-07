@@ -1,0 +1,87 @@
+.formGroup {
+    margin-bottom: 0;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.9;
+}
+
+.inputWrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.leftIcon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    transition: color 0.3s ease;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.rightIcon {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    transition: color 0.3s ease;
+    z-index: 2;
+}
+
+.rightIcon:hover {
+    color: var(--text-main);
+}
+
+.glassInput {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid var(--border-glass);
+    color: var(--text-main);
+    border-radius: var(--radius-sm);
+    font-size: 0.95rem;
+    outline: none;
+    transition: all 0.3s ease;
+    flex: 1;
+}
+
+.withIcon {
+    padding-left: 2.5rem;
+}
+
+.withRightIcon {
+    padding-right: 2.5rem;
+}
+
+.glassInput:focus {
+    background: rgba(30, 41, 59, 0.8);
+    border-color: var(--primary-light);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.inputWrapper:focus-within .leftIcon,
+.inputWrapper:focus-within .rightIcon {
+    color: var(--primary-light);
+}
+
+/* Modificador global para forms em grid caso o dev passe className no wrapper externo */
+.formGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
+}

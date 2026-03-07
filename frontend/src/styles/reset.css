@@ -1,0 +1,29 @@
+/* Reset de layout essencial para o React montar corretamente */
+body,
+html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow-x: hidden;
+}
+
+/* Ocultar elementos do HTML legado — apenas o react-root deve aparecer */
+#login-overlay,
+#app-splash-screen,
+#main-app-container,
+#global-loading-overlay {
+    display: none !important;
+}
+
+/* Ponto de montagem do React ocupa toda a tela */
+#react-root {
+    display: block !important;
+    min-height: 100vh;
+    width: 100%;
+}
+
+/* Animação do spinner de carregamento das páginas lazy */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}

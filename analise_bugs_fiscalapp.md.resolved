@@ -1,0 +1,370 @@
+# 🐛 Análise de Risco de Bugs — FiscalApp
+**Data:** 05/03/2026 | **Método:** Análise estática read-only  
+**Arquivos inspecionados:** [processos.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/processos.py), [auth.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/auth.py), [security.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/core/security.py), [database.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/core/database.py), [meses.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/meses.py), [misc.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/misc.py), [clientes.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/clientes.py), [performance.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/performance.py), [execucoes.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/execucoes.py), [mes.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/mes.py), [main.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/main.py), [app.js](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js), [AuthContext.jsx](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/contexts/AuthContext.jsx), [08_gestao_processos.sql](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/sql/08_gestao_processos.sql), [REPARO_COMPETENCIA_FINAL.sql](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/sql/REPARO_COMPETENCIA_FINAL.sql)
+
+---
+
+## 🔴 CRÍTICOS — Podem quebrar o sistema em produção imediatamente
+
+---
+
+### BUG #1 — Método JavaScript usado em código Python
+| | |
+|---|---|
+| **Arquivo** | [backend/src/api/v1/endpoints/processos.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/processos.py) — linha **442** |
+| **Código** | `due_date = f"..." if comp else None` usando `.padStart(2, '0')` |
+| **Problema** | `.padStart()` é um método de `String` em **JavaScript**, não em Python. Esta linha lança `AttributeError` em tempo de execução toda vez que o endpoint `GET /api/processos/execucao/todos` é chamado. |
+| **Impacto** | A **visão administrativa de todas as tarefas** nunca retorna dados válidos — o endpoint falha silenciosamente e retorna uma lista vazia (`[]`), fazendo o dashboard admin parecer sem dados. |
+
+---
+
+### BUG #2 — Competência FECHADA pode ser reaberta acidentalmente
+| | |
+|---|---|
+| **Arquivo** | [backend/sql/REPARO_COMPETENCIA_FINAL.sql](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/sql/REPARO_COMPETENCIA_FINAL.sql) — linha **30** |
+| **Código** | `ON CONFLICT (mes, ano) DO UPDATE SET status = 'ABERTA'` |
+| **Problema** | Se o admin chamar `POST /api/meses/gerar/{mes}/{ano}` para um mês que já foi **FECHADO** (por exemplo, para adicionar um cliente esquecido), o banco vai **reabrir a competência fechada** automaticamente. Todo o histórico de fechamento e `data_fechamento` é perdido. |
+| **Impacto** | Corrupção de dados históricos. Uma competência auditada pode ser reaberta por erro de digitação (ex: admin digita mês errado). |
+
+---
+
+### BUG #3 — N+1 Queries crítico na fila operacional
+| | |
+|---|---|
+| **Arquivo** | [processos.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/processos.py) — linhas **387–391** e **444–448** |
+| **Código** | Para cada tarefa na lista, executam-se 2 queries extras de `COUNT` |
+| **Problema** | Com 50 clientes × 5 processos × 3 tarefas = 300 tarefas → **600 queries extras** por carregamento de tela. Cada query tem round-trip para o Supabase (latência de rede inclusa). |
+| **Impacto** | Timeout da API ou latência de 30–60s para escritórios médios. O timeout padrão do Vercel para funções serverless é de **10 segundos** — a rota vai falhar. |
+
+---
+
+### BUG #4 — SECRET_KEY com valor padrão público hardcoded
+| | |
+|---|---|
+| **Arquivo** | [backend/src/core/security.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/core/security.py) — linha **9** |
+| **Código** | `SECRET_KEY = os.getenv("JWT_SECRET_KEY", "SUA_CHAVE_SUPER_SECRETA_PADRAO_AKDJAWIE")` |
+| **Problema** | Se a variável de ambiente `JWT_SECRET_KEY` não estiver configurada no servidor de produção, **todos os JWTs são assinados com uma chave pública e conhecida**. Qualquer pessoa pode ler este repositório, gerar tokens válidos com qualquer [sub](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js#5495-5519) (ID de usuário) e se autenticar como qualquer usuário do sistema. |
+| **Impacto** | Comprometimento total da autenticação. Acesso administrativo por qualquer atacante que conheça o código. |
+
+---
+
+### BUG #5 — Fallback de autenticação com senha em texto plano
+| | |
+|---|---|
+| **Arquivo** | [backend/src/core/security.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/core/security.py) — linhas **32–34** |
+| **Código** | `if plain_password == hashed_password: return True` |
+| **Problema** | O sistema aceita login se a senha informada for **idêntica à string armazenada no banco**, mesmo que não seja um hash bcrypt. Registros legados com senhas como `"123456"` armazenadas em texto puro são aceitos. Não há migração forçada. |
+| **Impacto** | Senhas fracas em texto plano permanecem permanentemente vulneráveis. Um vazamento do banco de dados expõe credenciais imediatamente. |
+
+---
+
+### BUG #6 — Sem autorização no backend (IDOR total)
+| | |
+|---|---|
+| **Arquivo** | Todos os endpoints: [clientes.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/clientes.py), [processos.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/processos.py), [misc.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/misc.py), [meses.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/meses.py) |
+| **Problema** | Não há verificação de **cargo ou permissão** no backend. Qualquer usuário com token válido (mesmo operacional) pode: deletar processos (`DELETE /api/processos/{id}`), fechar competências (`POST /api/meses/fechar/{id}`), deletar clientes (`DELETE /api/clientes/{id}`), criar/editar cargos (`POST /api/cargos`). |
+| **Impacto** | Um funcionário operacional pode destruir toda a base operacional do escritório. Insecure Direct Object Reference (IDOR) em todas as rotas de escrita. |
+
+---
+
+### BUG #7 — Dados mockados de performance expostos como reais
+| | |
+|---|---|
+| **Arquivo** | [backend/src/api/v1/endpoints/performance.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/performance.py) — linhas **81–89** |
+| **Código** | `"completed_tasks": random.randint(12, 45)` |
+| **Problema** | O endpoint `GET /api/performance/me` retorna números **gerados aleatoriamente** a cada chamada. Os usuários veem dados como "32 tarefas concluídas" ou "87% no prazo" que mudam a cada reload. |
+| **Impacto** | Decisões de negócio baseadas em métricas falsas. Perda de confiança no sistema quando usuários percebem. Impedimento legal em contextos de auditoria de performance. |
+
+---
+
+### BUG #8 — [renderMensagens](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js#4111-4207) chamada após remoção do sistema de mensagens
+| | |
+|---|---|
+| **Arquivo** | [frontend/src/app.js](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js) — linhas **878** e **886** |
+| **Código** | `else if (initialView === 'mensagens') renderMensagens();` e `if (initialView !== 'mensagens') renderMensagens();` |
+| **Problema** | O sistema de mensagens foi **removido** em uma sessão anterior, mas as chamadas a [renderMensagens()](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js#4111-4207) e `updateMensagensBadges()` (linha **889**) permanecem no código. Se [renderMensagens](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js#4111-4207) não estiver definida, isso lança `ReferenceError` e pode interromper a sequência de inicialização da aplicação. |
+| **Impacto** | Crash silencioso na inicialização pós-login. A view pode não ser ativada e o usuário vê tela em branco. |
+
+---
+
+## 🟠 ALTOS — Falhas frequentes em cenários reais
+
+---
+
+### BUG #9 — `MesCRUD.delete_with_cascade` sem transação
+| | |
+|---|---|
+| **Arquivo** | [backend/src/crud/mes.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/mes.py) — linhas **30–37** |
+| **Problema** | A deleção em cascata executa duas operações sequenciais: `DELETE rh_execucao_processos` e depois `DELETE rh_competencias`. Se a segunda falhar (constraint, timeout de rede), os dados de execução são apagados mas a competência permanece, criando **registros órfãos** e estado inconsistente. |
+| **Impacto** | Dados de execução apagados sem a competência correspondente ser removida. Impossível recuperar sem acesso direto ao banco. |
+
+---
+
+### BUG #10 — [toggle_checklist](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/execucoes.py#68-76) pode marcar `checked_em` incorretamente
+| | |
+|---|---|
+| **Arquivo** | [backend/src/crud/execucoes.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/execucoes.py) — linhas **68–74** |
+| **Código** | `if is_checked: dados["checked_em"] = datetime.now().isoformat()` |
+| **Problema** | `datetime.now()` gera timestamp **sem timezone** (naive datetime). O banco armazena com `WITH TIME ZONE`. Isso causa inconsistência de timezone entre registros — alguns terão UTC, outros terão o horário local do servidor (UTC-3 no Brasil). |
+| **Impacto** | Relatórios de auditoria com timestamps incorretos. O mesmo ocorre em [fechar_competencia](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/execucoes.py#19-23) na mesma linha. |
+
+---
+
+### BUG #11 — Closure stale no timeout do `AuthContext`
+| | |
+|---|---|
+| **Arquivo** | [frontend/src/contexts/AuthContext.jsx](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/contexts/AuthContext.jsx) — linhas **15–20** |
+| **Código** | `if (mounted && loading) { setLoading(false); }` |
+| **Problema** | O `loading` capturado pelo closure do `setTimeout` é sempre `true` (o valor inicial), pois `useEffect` cria um closure estático. Mesmo que `loading` mude para `false` antes dos 5s, o timeout ainda tentará chamar `setLoading(false)` novamente, causando re-render desnecessário. O clearTimeout no `finally` mitiga isso, mas há race condition se a promise resolver precisamente no mesmo tick do timeout. |
+| **Impacto** | Re-render desnecessário. Em casos de borda, pode causar estado `loading=false` quando ainda deveria ser `true`. |
+
+---
+
+### BUG #12 — `isAdmin` baseado em nome de usuário
+| | |
+|---|---|
+| **Arquivo** | [AuthContext.jsx](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/contexts/AuthContext.jsx) linha **90** e [auth.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/auth.py) linha **102** e [app.js](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js) linha **942** |
+| **Código** | `profile?.nome?.toLowerCase() === 'manager'` |
+| **Problema** | Um usuário com nome literalmente `"Manager"` ganha acesso administrativo total, independentemente do cargo atribuído. Esta verificação existe em **3 lugares diferentes** (backend, AuthContext, app.js), criando superfície de ataque ampla. |
+| **Impacto** | Escalação de privilégio. Qualquer admin que criar um funcionário chamado "Manager" (por engano ou intencionalmente) concede acesso total. |
+
+---
+
+### BUG #13 — Endpoint `GET /api/processos/ativa/atual` retorna `null` (não HTTP 404)
+| | |
+|---|---|
+| **Arquivo** | [backend/src/api/v1/endpoints/meses.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/meses.py) — linhas **70–73** |
+| **Código** | `if res.data: return res.data[0]` → `return None` |
+| **Problema** | Quando não há competência ativa, o endpoint retorna HTTP 200 com body `null` ao invés de 404. O frontend que espera um objeto pode quebrar ao tentar acessar `response.data.id` — resultando em `TypeError: Cannot read property 'id' of null`. |
+| **Impacto** | Tela em branco ou erro não tratado na UI quando não há competência aberta. |
+
+---
+
+### BUG #14 — [_save_steps](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/processos.py#183-242) usa `Date.now()` como critério para IDs reais
+| | |
+|---|---|
+| **Arquivo** | [processos.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/processos.py) — linha **188** |
+| **Código** | `is_real_id = isinstance(s.id, int) and s.id is not None and s.id < 1000000000` |
+| **Problema** | A lógica distingue IDs reais do banco de IDs temporários do frontend usando o valor `1.000.000.000` como limiar. Se o banco crescer e gerar autoincrement acima de 1 bilhão (improbável mas possível), ou se o frontend usar outro mecanismo de ID temporário menor que 1B, o sistema trata wrongly um ID existente como temporário e tenta **inserir** ao invés de fazer **upsert**, causando duplicação ou erro de constraint. |
+| **Impacto** | Corrupção de dados de processo ao editar tarefas. |
+
+---
+
+### BUG #15 — Endpoint `/api/processos/execucao/me` sem autenticação
+| | |
+|---|---|
+| **Arquivo** | [processos.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/processos.py) — linha **353** |
+| **Código** | `async def listar_tarefas_me(funcionario_id: int, competencia_id: Optional[int] = None)` |
+| **Problema** | O `funcionario_id` vem como query parameter sem nenhuma validação de que o usuário logado corresponde a ele. Qualquer usuário autenticado pode chamar `GET /api/processos/execucao/me?funcionario_id=1` e ver as tarefas de qualquer outro colega. |
+| **Impacto** | Vazamento de dados operacionais entre funcionários. |
+
+---
+
+### BUG #16 — Múltiplas competências ABERTAS simultaneamente
+| | |
+|---|---|
+| **Arquivo** | Schema SQL ([08_gestao_processos.sql](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/sql/08_gestao_processos.sql)) e endpoint [meses.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/meses.py) |
+| **Problema** | Não há constraint no banco que garanta no máximo **uma** competência com status `'ABERTA'` por vez. O endpoint `GET /api/processos/execucao/me` filtra por `status='ABERTA'` com `LIMIT 1`, mas se existirem duas abertas, o sistema silenciosamente ignora uma delas. |
+| **Impacto** | Tarefas geradas para uma competência podem não aparecer no dashboard. Inconsistência operacional grave. |
+
+---
+
+### BUG #17 — `supabase_admin` pode ser `None` nos endpoints de processos
+| | |
+|---|---|
+| **Arquivo** | [processos.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/processos.py) — linha **4** e [database.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/core/database.py) linhas **14–31** |
+| **Código** | `from src.core.database import supabase_admin as supabase` |
+| **Problema** | Se as variáveis de ambiente não estiverem configuradas, `supabase_admin` inicializa como `None`. Todos os endpoints de [processos.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/processos.py) usam diretamente `supabase.table(...)` sem verificar se [supabase](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/core/database.py#33-36) é None, causando `AttributeError: 'NoneType' object has no attribute 'table'` em vez de uma mensagem de erro clara. |
+| **Impacto** | API inteira de processos quebra sem mensagem de erro útil. |
+
+---
+
+### BUG #18 — `DELETE /api/clientes/{cliente_id}` sem tratamento de erro
+| | |
+|---|---|
+| **Arquivo** | [clientes.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/clientes.py) — linhas **32–35** |
+| **Código** | `response = ClienteCRUD.delete(cliente_id); return response.data` |
+| **Problema** | Sem bloco `try/except`. Se a deleção falhar (FK constraint com `rh_processos_clientes` ou `rh_execucao_processos`), a exceção vai para o handler genérico do FastAPI retornando HTTP 500 com stack trace potencialmente exposto. |
+| **Impacto** | Informações internas do banco de dados potencialmente expostas. Cliente não é deletado mas o usuário recebe mensagem genérica. |
+
+---
+
+### BUG #19 — Endpoint `debug-login` expõe todos os headers HTTP em produção
+| | |
+|---|---|
+| **Arquivo** | [auth.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/auth.py) — linhas **188–197** |
+| **Código** | `"headers": dict(request.headers), "cookies": request.cookies` |
+| **Problema** | Este endpoint retorna todos os headers da requisição incluindo `Authorization`, `Cookie`, e outros headers sensíveis. Qualquer usuário pode acessar `POST /api/auth/debug-login` e inspecionar os dados de contexto HTTP. |
+| **Impacto** | Vazamento de tokens de outros usuários se a resposta for logada ou cacheada. Risco de SSRF em ambientes proxy. |
+
+---
+
+### BUG #20 — `gerador_nova_competencia` não tem transação explícita em caso de falha parcial
+| | |
+|---|---|
+| **Arquivo** | [REPARO_COMPETENCIA_FINAL.sql](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/sql/REPARO_COMPETENCIA_FINAL.sql) e [08_gestao_processos.sql](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/sql/08_gestao_processos.sql) |
+| **Problema** | A stored procedure cria a competência primeiro e depois itera sobre os processos. Se uma iteração falhar no meio (ex: constraint violation em `rh_execucao_tarefas_responsaveis`), a competência já foi criada mas algumas execuções não foram instanciadas. O PL/pgSQL sem `EXCEPTION WHEN` e `ROLLBACK` explícito pode deixar dados parciais. |
+| **Impacto** | Competência aberta com apenas parte dos clientes/processos gerados. Funcionários não veem tarefas de clientes específicos naquele mês. |
+
+---
+
+## 🟡 MÉDIOS — Falhas em cenários específicos
+
+---
+
+### BUG #21 — XSS potencial em [applyBranding()](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js#1037-1092)
+| | |
+|---|---|
+| **Arquivo** | [app.js](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js) — linhas **1071–1072** |
+| **Código** | `` loginLogo.innerHTML = `<img src="${brandLogoUrl}" ...>` `` |
+| **Problema** | `brandLogoUrl` vem do banco de dados sem sanitização. Um admin malicioso (ou comprometido) pode inserir `" onerror="alert(document.cookie)` como URL do logo, executando JavaScript arbitrário para todos os usuários no login. |
+| **Impacto** | XSS persistente no login. Roubo de sessão de todos os usuários. |
+
+---
+
+### BUG #22 — [fechar_competencia](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/execucoes.py#19-23) não valida se já está fechada
+| | |
+|---|---|
+| **Arquivo** | [meses.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/meses.py) — linhas **76–83** |
+| **Problema** | `POST /api/meses/fechar/{competencia_id}` pode ser chamado múltiplas vezes sem verificar o status atual. Não há idempotência. Também não atualiza `data_fechamento` nesta versão do endpoint (o CRUD faz, mas o endpoint da API não usa o CRUD). |
+| **Impacto** | Estado inconsistente entre o campo [status](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/execucoes.py#58-67) e `data_fechamento`. |
+
+---
+
+### BUG #23 — [toggle_checklist_execucao](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/processos.py#510-526) aceita payload `dict` sem validação
+| | |
+|---|---|
+| **Arquivo** | [processos.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/processos.py) — linha **511** |
+| **Código** | `async def toggle_checklist_execucao(checklist_id: int, payload: dict)` |
+| **Problema** | O payload é um `dict` genérico sem schema Pydantic. Qualquer JSON é aceito. Se `is_checked` não for enviado, `payload.get('is_checked')` retorna `None`, e o banco recebe `{"is_checked": null}`, que pode criar comportamento indefinido dependendo do tipo da coluna. |
+| **Impacto** | Checklist pode ser desfeito involuntariamente. Bug silencioso difícil de rastrear. |
+
+---
+
+### BUG #24 — `Store.getAuthBySession` depende de dados da API em memória
+| | |
+|---|---|
+| **Arquivo** | [app.js](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js) — linha **98** |
+| **Código** | `const auth = Store.getAuthBySession(storedSession)` |
+| **Problema** | O sistema tenta restaurar sessão usando `sessionStorage`, mas a validação da sessão depende de dados carregados da API. Se a API estiver offline ou lenta, `Store.loadFromStorage()` retorna dados vazios e `getAuthBySession` falha, **deslogando o usuário** mesmo com sessão válida. |
+| **Impacto** | Usuário deslogado forçadamente sempre que o backend tiver instabilidade momentânea. |
+
+---
+
+### BUG #25 — [delete_setor](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/misc.py#22-25) por nome (não por ID)
+| | |
+|---|---|
+| **Arquivo** | [misc.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/misc.py) — linha **23** |
+| **Código** | `DELETE /api/setores/{nome}` |
+| **Problema** | A deleção de setor usa o **nome** como identificador único. Se dois setores tiverem nomes similares ou se houver encoding de URL (`%20` vs espaço), pode deletar o setor errado ou falhar silenciosamente. |
+| **Impacto** | Deleção de setor incorreto. Funcionários perdem vínculo de setor. |
+
+---
+
+### BUG #26 — [update_status_tarefa](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/execucoes.py#58-67) no CRUD duplica a lógica de desbloqueio
+| | |
+|---|---|
+| **Arquivo** | [execucoes.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/execucoes.py) (CRUD) vs [processos.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/processos.py) (endpoint) |
+| **Problema** | Existem **duas implementações** diferentes para atualizar o status de uma tarefa: uma no CRUD ([execucoes.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/execucoes.py)) que apenas atualiza o status, e outra no endpoint ([processos.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/processos.py)) que também desbloqueia tarefas dependentes. Se o CRUD for chamado diretamente em algum ponto, o desbloqueio em cascata **não acontece**. |
+| **Impacto** | Tarefas dependentes ficam permanentemente BLOQUEADAS se a atualização vier pelo caminho errado. |
+
+---
+
+### BUG #27 — Auditoria CSV vulnerável a CSV Injection
+| | |
+|---|---|
+| **Arquivo** | [app.js](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js) — linhas **806–814** |
+| **Código** | [(l.details || '').replace(/,/g, ';')](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js#4762-4787) |
+| **Problema** | O código substitui vírgulas por ponto-e-vírgula mas **não sanitiza** caracteres de início de fórmula (`=`, `+`, `-`, `@`). Um atacante que controla campos de log pode injetar fórmulas como `=HYPERLINK("http://evil.com")` que serão executadas ao abrir o CSV no Excel. |
+| **Impacto** | CSV Injection. Risco para admins que abrem os logs no Excel. |
+
+---
+
+### BUG #28 — Senha enviada ao backend sem HTTPS forçado
+| | |
+|---|---|
+| **Arquivo** | [main.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/main.py) — linhas **22–40** |
+| **Problema** | O CORS permite origens `http://` (não HTTPS) como `http://localhost:3000`. Cookies com `secure=True` não são enviados em HTTP, mas em desenvolvimento o sistema provavelmente funciona sem HTTPS, criando confusão entre ambientes. |
+| **Impacto** | Em ambiente de teste sem HTTPS, o cookie de autenticação não é persistido, causando loops de login confusos. |
+
+---
+
+### BUG #29 — Dependências de tarefas não resolvidas corretamente no [_save_steps](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/processos.py#183-242)
+| | |
+|---|---|
+| **Arquivo** | [processos.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/crud/processos.py) — linhas **235–241** |
+| **Código** | `if s.dependente_de_id and s.dependente_de_id in id_map` |
+| **Problema** | O `id_map` só é preenchido quando a tarefa tem `s.id` válido. Se uma tarefa nova (sem ID) depende de outra tarefa nova (sem ID), `s.dependente_de_id` (que é um ID temporário do frontend) nunca estará em `id_map` com a versão correta do banco. A dependência é perdida silenciosamente. |
+| **Impacto** | Processos salvos com dependências entre tarefas novas podem ter fluxo incorreto — tarefas que deveriam ser BLOQUEADAS nascem como PENDENTES. |
+
+---
+
+### BUG #30 — Credenciais Supabase expostas em log de servidor
+| | |
+|---|---|
+| **Arquivo** | [database.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/core/database.py) — linha **18** |
+| **Código** | `print(f"Tentando conectar ao Supabase em: {url}")` |
+| **Problema** | A URL do Supabase é logada em stdout em cada inicialização. Em ambientes de log gerenciado (Heroku, Railway, etc.), esta URL fica exposta nos logs do servidor potencialmente acessíveis a outros desenvolvedores da equipe. |
+| **Impacto** | Vazamento parcial de credenciais de infraestrutura. |
+
+---
+
+### BUG #31 — [validate_supabase_token](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/core/security.py#65-97) silencia falhas de validação
+| | |
+|---|---|
+| **Arquivo** | [security.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/core/security.py) — linhas **91–96** |
+| **Código** | `except Exception as e: print(...); return None` |
+| **Problema** | Erros inesperados na validação do token retornam `None` (sem autenticação) ao invés de propagar o erro. Isso inclui erros de **configuração** (chave JWT errada, JWT_SECRET ausente), que deveriam ser flags críticos, não silenciados. |
+| **Impacto** | Falhas de configuração de segurança são mascaradas. O sistema pode funcionar "aparentemente normal" sem autenticar corretamente. |
+
+---
+
+### BUG #32 — [get_me](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/auth.py#145-187) faz duas queries ao banco para o mesmo dado
+| | |
+|---|---|
+| **Arquivo** | [auth.py](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/backend/src/api/v1/endpoints/auth.py) — linhas **151–168** |
+| **Problema** | O endpoint `/api/auth/me` busca o funcionário com join em `cargos_permissoes`, mas depois faz **outra query** na tabela `cargos_permissoes` novamente para buscar `telas_permitidas`. Os dados já foram carregados no primeiro join. |
+| **Impacto** | Performance: 2 queries desnecessárias em cada verificação de sessão — chamada feita a cada autenticação. |
+
+---
+
+### BUG #33 — Logo URL inserida sem validação de domínio
+| | |
+|---|---|
+| **Arquivo** | [app.js](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js) — linha **1071** |
+| **Problema** | A URL do logo de branding é inserida diretamente em `<img src="...">` sem validação de que é uma URL HTTPS válida. URLs como `javascript:...`, `data:text/html,...` ou endereços internos (`http://192.168.1.1`) podem ser inseridas. |
+| **Impacto** | SSRF (Server-Side Request Forgery comportamental) e XSS via protocolo `javascript:` em navegadores legados. |
+
+---
+
+### BUG #34 — `currentCompetencia` pode ser string ou UUID dependendo do fluxo
+| | |
+|---|---|
+| **Arquivo** | [app.js](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/frontend/src/app.js) — linhas **38**, **261–267** |
+| **Código** | `let currentCompetencia = \`${nowApp.getFullYear()}-${...}\`` inicialmente, mas depois `currentCompetencia = activeMonth.id` |
+| **Problema** | `currentCompetencia` começa como string no formato `"YYYY-MM"`, depois é substituído por um ID numérico da tabela (`m.id`). Qualquer função que dependa do formato `"YYYY-MM"` vai falhar após a carga dos dados. |
+| **Impacto** | Filtros de competência nos dashboards podem não funcionar após carregamento inicial. |
+
+---
+
+### BUG #35 — Deploy serverless com backend que não existe na infraestrutura
+| | |
+|---|---|
+| **Arquivo** | [vercel.json](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/vercel.json) e estrutura geral do projeto |
+| **Problema** | O [vercel.json](file:///c:/Users/ribei/OneDrive/Desktop/RB/FiscalApp/sistema_ok/vercel.json) configura apenas o **frontend** como SPA estática. O backend FastAPI **não está configurado para deploy automático** em nenhum lugar. Sem o backend rodando, 100% das operações de dados falham. Não há fallback, health check ou documentação de onde o backend deve ser hospedado. |
+| **Impacto** | Em um deploy limpo via Vercel, a aplicação não funciona para nenhum usuário. O backend precisa ser iniciado manualmente em outro ambiente. |
+
+---
+
+## Sumário de Riscos
+
+| Severidade | Quantidade | Exemplos |
+|---|---|---|
+| 🔴 **Crítico** | 8 | #1 (padStart), #2 (reabrir competência), #3 (N+1), #4 (JWT secret), #5 (senha plain), #6 (sem autorização backend), #7 (dados mock), #8 (renderMensagens) |
+| 🟠 **Alto** | 12 | #9 (sem transação), #12 (isAdmin por nome), #15 (IDOR funcionário), #16 (múltiplas competências) |
+| 🟡 **Médio** | 15 | #21 (XSS), #27 (CSV Injection), #34 (tipo competência), #35 (deploy backend) |
+
+---
+
+> **Nota:** Esta é uma análise estática read-only. Nenhum arquivo foi modificado.  
+> *Analista: Antigravity — Senior Software Reliability Engineer Analysis*
