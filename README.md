@@ -263,10 +263,6 @@ documentar mudanças relevantes
 
 abrir um pull request com contexto técnico objetivo
 
-Licença
-
-Defina aqui a licença oficial do projeto, se aplicável.
-
 Exemplo:
 
 MIT
