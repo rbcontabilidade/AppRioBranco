@@ -4,7 +4,11 @@ import { supabase } from './supabase';
 // URL base da API — lê a variável de ambiente injetada pelo Vite no build de produção.
 // Em produção (Vercel), configure VITE_API_URL nas Environment Variables do painel da Vercel.
 // Em desenvolvimento local, o valor do arquivo .env será utilizado como fallback.
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+const rawBaseUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+// Normalização: garante que a URL termine em /api (sem barra duplicada)
+const API_BASE_URL = rawBaseUrl.endsWith('/api') ? rawBaseUrl : `${rawBaseUrl.replace(/\/$/, '')}/api`;
+
+console.log(`[API Config] Base URL definida: ${API_BASE_URL}`);
 
 /**
  * Instância Axis Principal

@@ -1,4 +1,5 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+const rawApiBase = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+const API_BASE = rawApiBase.endsWith('/api') ? rawApiBase : `${rawApiBase.replace(/\/$/, '')}/api`;
 
 window.API_BASE = API_BASE;
 
