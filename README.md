@@ -1,54 +1,276 @@
----
-title: AppRioBranco API
-emoji: 🚀
-colorFrom: blue
-colorTo: indigo
-sdk: docker
-app_port: 7860
----
+# AppRioBranco
 
-# FiscalApp - Sistema de Gestão Fiscal
+Sistema web de gestão operacional, acompanhamento de processos e monitoramento de desempenho, com **backend em FastAPI**, **frontend em React + Vite** e integração com **Supabase**.
 
-Este repositório contém o sistema **FiscalApp**, composto por um backend em Python (FastAPI) e um frontend em React (Vite).
-
-## Status de Deploy: Correção do Erro de Login (PGRST205)
-
-Realizamos uma reestruturação completa para organizar o código na raiz e eliminar referências à tabela obsoleta `cargos`.
-
-### Estrutura do Projeto
-- `/backend`: API FastAPI (Python 3.10+).
-- `/frontend`: Interface do Usuário (React + Vite).
+O projeto foi estruturado para apoiar a operação interna com foco em produtividade, organização de demandas, acompanhamento de indicadores por usuário e gestão de processos empresariais.
 
 ---
 
-## 🚀 Ação Necessária no Supabase
+## Visão geral
 
-Para que o login volte a funcionar sem interrupções, é necessário remover gatilhos antigos que tentam acessar tabelas inexistentes. Execute o comando abaixo no **SQL Editor** do Supabase:
+O AppRioBranco é dividido em duas camadas principais:
 
-```sql
--- 1. Remover o gatilho que tenta criar perfis em tabelas inexistentes
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+- **Backend (`/backend`)**: API desenvolvida em Python com FastAPI
+- **Frontend (`/frontend`)**: interface web desenvolvida com React e Vite
 
--- 2. Remover a função de manipulação de novos usuários (obsoleta)
-DROP FUNCTION IF EXISTS public.handle_new_user();
-```
+A aplicação utiliza o **Supabase** como base de dados e suporte aos serviços de persistência.
 
 ---
 
-## 🛠️ Instruções de Deploy
+## Estrutura do projeto
 
-### Vercel (Frontend)
-1. Conecte o repositório à Vercel.
-2. Defina o **Root Directory** como `frontend`.
-3. Certifique-se de que as variáveis `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` e `VITE_API_URL` estão configuradas.
-4. Execute um **Redeploy with clean cache** se o erro persistir.
+```text
+AppRioBranco/
+├── backend/     # API FastAPI
+├── frontend/    # Aplicação React + Vite
+└── README.md
+Stack principal
+Backend
 
-### Hugging Face (Backend)
-1. Conecte o repositório ao seu Space.
-2. Defina o diretório de execução para a raiz (ou `backend`).
-3. O arquivo `main.py` está configurado para o ambiente de produção.
+Python 3.10+
 
----
+FastAPI
 
-## 📝 Documentação Adicional
-Para detalhes técnicos detalhados da migração de tabelas, consulte o histórico de commits.
+Uvicorn
+
+Supabase SDK
+
+Frontend
+
+React
+
+Vite
+
+JavaScript / JSX
+
+Axios
+
+Infraestrutura
+
+Supabase
+
+Vercel (frontend)
+
+Ambiente Python compatível para deploy do backend
+
+Requisitos
+
+Antes de rodar o projeto, tenha instalado:
+
+Python 3.10 ou superior
+
+Node.js 18 ou superior
+
+npm
+
+Projeto Supabase configurado
+
+Configuração do ambiente
+Backend
+
+Instale as dependências:
+
+cd backend
+pip install -r requirements.txt
+
+Crie um arquivo .env dentro da pasta backend com as variáveis do ambiente:
+
+SUPABASE_URL=
+SUPABASE_KEY=
+SUPABASE_SERVICE_KEY=
+JWT_SECRET_KEY=
+ENVIRONMENT=development
+
+Nunca publique segredos reais no repositório.
+
+Frontend
+
+Instale as dependências:
+
+cd frontend
+npm install
+
+Crie um arquivo .env dentro da pasta frontend:
+
+VITE_API_URL=
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+Execução local
+Iniciar backend
+cd backend
+uvicorn src.main:app --reload
+Iniciar frontend
+cd frontend
+npm run dev
+
+O frontend será executado localmente via Vite e consumirá a API configurada em VITE_API_URL.
+
+Deploy
+Frontend
+
+O frontend pode ser publicado na Vercel usando a pasta frontend como diretório raiz.
+
+Variáveis esperadas no ambiente:
+
+VITE_API_URL
+
+VITE_SUPABASE_URL
+
+VITE_SUPABASE_ANON_KEY
+
+Backend
+
+O backend deve ser publicado em ambiente compatível com FastAPI/Uvicorn.
+
+Variáveis esperadas:
+
+SUPABASE_URL
+
+SUPABASE_KEY
+
+SUPABASE_SERVICE_KEY
+
+JWT_SECRET_KEY
+
+Autenticação e permissões
+
+A aplicação possui fluxo de autenticação integrado ao backend e ao banco de dados.
+
+Para ambientes de produção, recomenda-se:
+
+utilizar segredos distintos por ambiente
+
+revisar periodicamente permissões e acessos
+
+validar integrações de autenticação antes de cada deploy
+
+manter consistência entre backend, frontend e estrutura do banco
+
+Banco de dados
+
+O sistema depende de tabelas e relacionamentos já existentes no Supabase.
+
+Sempre que houver alterações em:
+
+tabelas
+
+colunas
+
+funções
+
+triggers
+
+policies
+
+relacionamentos
+
+é importante validar o impacto nos fluxos críticos, principalmente:
+
+login
+
+carregamento de usuário autenticado
+
+permissões
+
+processos
+
+indicadores de desempenho
+
+Boas práticas recomendadas
+
+Para manter o projeto mais estável e sustentável:
+
+separar código de produção e código de apoio/debug
+
+evitar mocks em produção
+
+versionar mudanças de banco
+
+manter contratos de API estáveis
+
+revisar autenticação e tratamento de erros antes de alterações sensíveis
+
+testar rotas e telas críticas antes de publicar
+
+Troubleshooting
+Login não funciona
+
+Verifique:
+
+variáveis de ambiente do backend
+
+conectividade com Supabase
+
+estrutura das tabelas envolvidas no login
+
+possíveis funções, triggers ou policies que interfiram no fluxo
+
+Dados não aparecem no frontend
+
+Verifique:
+
+VITE_API_URL
+
+resposta das rotas da API
+
+permissões de acesso
+
+erros no console do navegador
+
+erros no log do backend
+
+Tela em branco após deploy
+
+Verifique:
+
+build do frontend
+
+variáveis de ambiente da Vercel
+
+disponibilidade do backend
+
+erros de importação
+
+respostas 401, 403, 404 ou 500 no navegador
+
+Roadmap técnico sugerido
+
+Melhorias recomendadas para evolução do projeto:
+
+fortalecer autenticação e gestão de sessão
+
+formalizar migrações de banco
+
+melhorar observabilidade e logs
+
+ampliar cobertura de testes
+
+reforçar contratos entre frontend e backend
+
+revisar governança de permissões e acessos
+
+Contribuição
+
+Fluxo sugerido para contribuição:
+
+criar uma branch a partir da principal
+
+implementar a alteração com escopo claro
+
+validar backend, frontend e integração
+
+documentar mudanças relevantes
+
+abrir um pull request com contexto técnico objetivo
+
+Licença
+
+Defina aqui a licença oficial do projeto, se aplicável.
+
+Exemplo:
+
+MIT
+Contato interno
+
+Kiko_brito
+
