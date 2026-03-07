@@ -77,7 +77,6 @@ const MyPerformance = () => {
     if (!stats) return <div className={styles.error}>Ops! Não conseguimos carregar seus dados.</div>;
 
     const {
-        kpis = {},
         eficiencia = {},
         tendencia = [],
         metas = {},
@@ -86,16 +85,51 @@ const MyPerformance = () => {
         funcionario = {}
     } = stats;
     
+    // Computando KPIs baseados puramente no array de tarefas atreladas à competência
+    const computedKPIs = useMemo(() => {
+        if (!tarefas || tarefas.length === 0) return { ativas: 0, vencemHoje: 0, atrasadas: 0, concluidas: 0, taxaNoPrazo: 100 };
+        
+        let ativas = 0;
+        let vencemHoje = 0;
+        let atrasadas = 0;
+        let concluidas = 0;
+        let concluidasNoPrazo = 0;
+
+        // O backend real pode usar "VENCE_HOJE" no status ou um indicador de data
+        const hojeObj = new Date();
+        const hojeFormatado = hojeObj.toISOString().split('T')[0];
+
+        tarefas.forEach(t => {
+            const isVenceHoje = t.status === 'VENCE_HOJE' || (t.data_vencimento && t.data_vencimento.startsWith(hojeFormatado));
+
+            if (t.status === 'CONCLUIDO') {
+                concluidas++;
+                if (!t.atrasada) concluidasNoPrazo++;
+            } else {
+                ativas++;
+                if (t.atrasada) atrasadas++;
+                else if (isVenceHoje) vencemHoje++;
+            }
+        });
+
+        const taxaNoPrazo = concluidas > 0 ? Math.round((concluidasNoPrazo / concluidas) * 100) : 100;
+
+        return { ativas, vencemHoje, atrasadas, concluidas, taxaNoPrazo };
+    }, [tarefas]);
+
     // Preparar dados do Gráfico Pie (Distribuição da Carteira)
     const distribuicao = [
-        { name: 'Em Andamento', value: kpis.em_andamento || 0, color: '#3b82f6' },
-        { name: 'Atrasadas', value: kpis.atrasadas_count || 0, color: '#ef4444' },
-        { name: 'Concluídas', value: kpis.concluidas || 0, color: '#10b981' },
+        { name: 'Em Andamento', value: Math.max(0, computedKPIs.ativas - computedKPIs.atrasadas - computedKPIs.vencemHoje), color: '#3b82f6' },
+        { name: 'Vencem Hoje', value: computedKPIs.vencemHoje, color: '#f59e0b' },
+        { name: 'Atrasadas', value: computedKPIs.atrasadas, color: '#ef4444' },
+        { name: 'Concluídas', value: computedKPIs.concluidas, color: '#10b981' },
     ].filter(d => d.value > 0);
 
     // Filtrar tarefas baseadas na Tab Smart
     const filteredTasks = tarefas.filter(t => {
+        const isVenceHoje = t.status === 'VENCE_HOJE' || (t.data_vencimento && t.data_vencimento.startsWith(new Date().toISOString().split('T')[0]));
         if (activeTab === 'Atrasadas') return t.atrasada;
+        if (activeTab === 'Vencem Hoje') return isVenceHoje && !t.atrasada && t.status !== 'CONCLUIDO';
         if (activeTab === 'Concluídas') return t.status === 'CONCLUIDO';
         return true;
     });
@@ -124,11 +158,6 @@ const MyPerformance = () => {
                     <option value="custom">Personalizado</option>
                 </select>
                 <select className={styles.filterSelect}>
-                    <option value="all">Tipos: Todos</option>
-                    <option value="fiscal">Fiscal</option>
-                    <option value="contabil">Contábil</option>
-                </select>
-                <select className={styles.filterSelect}>
                     <option value="all">Status: Todos</option>
                 </select>
                 <div style={{ flex: 1 }}></div>
@@ -144,27 +173,27 @@ const MyPerformance = () => {
             <div className={styles.summaryGrid} style={{ marginTop: '24px' }}>
                 <GlassCard className={`${styles.summaryCard} ${styles.blue}`}>
                     <span className={styles.summaryCardLabel}>Ativas</span>
-                    <span className={styles.summaryCardValue}>{kpis.em_andamento || 0}</span>
+                    <span className={styles.summaryCardValue}>{computedKPIs.ativas}</span>
                     <span className={styles.summaryCardSub}>Na sua carteira</span>
                 </GlassCard>
                 <GlassCard className={`${styles.summaryCard} ${styles.yellow}`}>
                     <span className={styles.summaryCardLabel}>Vencem Hoje</span>
-                    <span className={styles.summaryCardValue}>0</span>
+                    <span className={styles.summaryCardValue}>{computedKPIs.vencemHoje}</span>
                     <span className={styles.summaryCardSub}>Atenção redobrada</span>
                 </GlassCard>
                 <GlassCard className={`${styles.summaryCard} ${styles.red}`}>
                     <span className={styles.summaryCardLabel}>Atrasadas</span>
-                    <span className={styles.summaryCardValue}>{kpis.atrasadas_count || 0}</span>
+                    <span className={styles.summaryCardValue}>{computedKPIs.atrasadas}</span>
                     <span className={styles.summaryCardSub}>Precisam de foco</span>
                 </GlassCard>
                 <GlassCard className={`${styles.summaryCard} ${styles.green}`}>
                     <span className={styles.summaryCardLabel}>Concluídas</span>
-                    <span className={styles.summaryCardValue}>{kpis.concluidas || 0}</span>
+                    <span className={styles.summaryCardValue}>{computedKPIs.concluidas}</span>
                     <span className={styles.summaryCardSub}>No período</span>
                 </GlassCard>
                 <GlassCard className={`${styles.summaryCard} ${styles.green}`}>
                     <span className={styles.summaryCardLabel}>Taxa no Prazo</span>
-                    <span className={styles.summaryCardValue}>{100 - (kpis.taxa_atraso || 0)}%</span>
+                    <span className={styles.summaryCardValue}>{computedKPIs.taxaNoPrazo}%</span>
                     <span className={styles.summaryCardSub}>Entregas on-time</span>
                 </GlassCard>
                 <GlassCard className={`${styles.summaryCard} ${styles.blue}`}>
