@@ -92,7 +92,7 @@ const Login = () => {
                     </div>
                     <h1 style={{ fontSize: '1.8rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>Bem-vindo</h1>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>
-                        Portal Fiscal Antigravity | RB Consultoria
+                        RioBranco | Contabilidade Digital
                     </p>
                 </div>
 
@@ -118,7 +118,7 @@ const Login = () => {
                     <GlassInput
                         id="username"
                         label="Usuário"
-                        placeholder="Ex: kiko"
+                        placeholder="Seu Id"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         icon="fa-solid fa-user"
