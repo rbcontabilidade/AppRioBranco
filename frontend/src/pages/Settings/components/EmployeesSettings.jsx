@@ -9,14 +9,13 @@ import { SettingsModal } from './SettingsModal';
 export const EmployeesSettings = () => {
     const [employees, setEmployees] = useState([]);
     const [sectors, setSectors] = useState([]);
-    const [cargos, setCargos] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const [modalOpen, setModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [formData, setFormData] = useState({
         nome: '',
-        cargo_id: '',
+        permissao: 'Operacional',
         senha: '',
         setor_id: '',
         ativo: true
@@ -25,14 +24,12 @@ export const EmployeesSettings = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [empRes, secRes, carRes] = await Promise.all([
+            const [empRes, secRes] = await Promise.all([
                 api.get('/funcionarios'),
-                api.get('/setores'),
-                api.get('/cargos')
+                api.get('/setores')
             ]);
             setEmployees(empRes.data || []);
             setSectors(secRes.data || []);
-            setCargos(carRes.data || []);
         } catch (err) {
             console.error("Erro ao carregar os dados:", err);
         } finally {
@@ -49,14 +46,14 @@ export const EmployeesSettings = () => {
             setEditingId(emp.id);
             setFormData({
                 nome: emp.nome,
-                cargo_id: emp.cargo_id || '',
+                permissao: emp.permissao || 'Operacional',
                 senha: '', // Não carrega senha no edit, apenas permite alteração
                 setor_id: emp.setor_id || '',
                 ativo: emp.ativo
             });
         } else {
             setEditingId(null);
-            setFormData({ nome: '', cargo_id: '', senha: '', setor_id: '', ativo: true });
+            setFormData({ nome: '', permissao: 'Operacional', senha: '', setor_id: '', ativo: true });
         }
         setModalOpen(true);
     };
@@ -66,7 +63,6 @@ export const EmployeesSettings = () => {
         try {
             const payload = { ...formData };
             if (!payload.setor_id) { payload.setor_id = null; } else { payload.setor_id = parseInt(payload.setor_id, 10); }
-            if (!payload.cargo_id) { payload.cargo_id = null; } else { payload.cargo_id = parseInt(payload.cargo_id, 10); }
             if (editingId && !payload.senha) delete payload.senha;
 
             if (editingId) {
@@ -98,11 +94,19 @@ export const EmployeesSettings = () => {
         }
     };
 
-    const tableColumns = ['Nome', 'Cargo & Nível', 'Setor', 'Status', 'Ações'];
+    const tableColumns = ['Nome', 'Nível de Acesso', 'Setor', 'Status', 'Ações'];
 
     const tableData = employees.map(row => [
         row.nome,
-        row.cargos_permissoes ? `${row.cargos_permissoes.nome_cargo}` : <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Sem Cargo</span>,
+        row.permissao ? (
+            <span style={{
+                background: row.permissao === 'Admin' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(148, 163, 184, 0.2)',
+                color: row.permissao === 'Admin' ? '#818cf8' : '#cbd5e1',
+                padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: '500'
+            }}>
+                {row.permissao}
+            </span>
+        ) : <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Operacional</span>,
         row.setores?.nome || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Sem Setor</span>,
         row.ativo ?
             <span style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem' }}>Ativo</span> :
@@ -164,17 +168,15 @@ export const EmployeesSettings = () => {
                     </div>
                     <div style={{ display: 'flex', gap: '16px' }}>
                         <div style={{ flex: 1 }}>
-                            <label style={{ color: 'var(--text-light)', fontSize: '0.85rem' }}>Cargo e Permissão *</label>
+                            <label style={{ color: 'var(--text-light)', fontSize: '0.85rem' }}>Nível de Acesso *</label>
                             <select
                                 required
                                 className="glass-input"
-                                value={formData.cargo_id}
-                                onChange={(e) => setFormData({ ...formData, cargo_id: e.target.value })}
+                                value={formData.permissao}
+                                onChange={(e) => setFormData({ ...formData, permissao: e.target.value })}
                             >
-                                <option value="" disabled hidden>Selecione um Cargo</option>
-                                {cargos.map(car => (
-                                    <option key={car.id} value={car.id}>{car.nome_cargo}</option>
-                                ))}
+                                <option value="Operacional">Operacional</option>
+                                <option value="Admin">Administrador</option>
                             </select>
                         </div>
                         <div style={{ flex: 1 }}>
