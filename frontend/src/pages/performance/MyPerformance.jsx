@@ -39,6 +39,26 @@ const MyPerformance = () => {
         fetchPerformance();
     }, [profile]);
 
+    // Helper para normalizar status
+    const normalizeStatus = (status) => {
+        if (!status) return '';
+        const s = status.toUpperCase();
+        if (s === 'CONCLUIDA' || s === 'CONCLUÍDA' || s === 'CONCLUIDO') return 'CONCLUIDO';
+        return s;
+    };
+
+    // Helper para verificar se a data (DD/MM/YYYY) é hoje
+    const isToday = (dataApresentacao) => {
+        if (!dataApresentacao) return false;
+        const hojeObj = new Date();
+        const hojeDD = String(hojeObj.getDate()).padStart(2, '0');
+        const hojeMM = String(hojeObj.getMonth() + 1).padStart(2, '0');
+        const hojeYYYY = hojeObj.getFullYear();
+        const hojeFormatado = `${hojeDD}/${hojeMM}/${hojeYYYY}`;
+        return dataApresentacao === hojeFormatado;
+    };
+
+
     // Destructuring seguro ANTES dos early returns
     const rawTarefas = stats?.tarefas || [];
     const kpis = stats?.kpis || {};
@@ -56,12 +76,13 @@ const MyPerformance = () => {
             { id: 'ritmo_forte', name: 'Ritmo Forte', desc: 'Manteve alta produtividade contínua', locked: true, icon: <Flame size={24} /> }
         ] };
         
-        const attention = rawTarefas.filter(t => t.atrasada || t.status === 'VENCE_HOJE' || t.status === 'EM_RISCO').slice(0, 4);
+        // Pega as tarefas ativas e com risco
+        const attention = rawTarefas.filter(t => t.atrasada || normalizeStatus(t.status) === 'VENCE_HOJE' || normalizeStatus(t.status) === 'EM_RISCO').slice(0, 4);
         
         let streak = 0;
         let onTimeCount = 0;
         rawTarefas.forEach(t => {
-            if (t.status === 'CONCLUIDO' && !t.atrasada) {
+            if (normalizeStatus(t.status) === 'CONCLUIDO' && !t.atrasada) {
                 onTimeCount++;
                 streak++;
             } else if (t.atrasada) {
@@ -78,37 +99,16 @@ const MyPerformance = () => {
         return { attention, streak, onTimeCount, badges };
     }, [stats?.tarefas]);
     
-    // Computando KPIs baseados puramente no array de tarefas atreladas à competência
+    // Computando KPIs extraídos diretamente da resposta bruta da API para precisão matemática, em vez de depender da view `rawTarefas` cortada.
     const computedKPIs = useMemo(() => {
-        if (!rawTarefas || !Array.isArray(rawTarefas) || rawTarefas.length === 0) return { ativas: 0, vencemHoje: 0, atrasadas: 0, concluidas: 0, taxaNoPrazo: 100 };
-        
-        let ativas = 0;
-        let vencemHoje = 0;
-        let atrasadas = 0;
-        let concluidas = 0;
-        let concluidasNoPrazo = 0;
-
-        const hojeObj = new Date();
-        const hojeFormatado = hojeObj.toISOString().split('T')[0];
-
-        rawTarefas.forEach(t => {
-            const dataVencString = t.data_vencimento ? String(t.data_vencimento) : '';
-            const isVenceHoje = t.status === 'VENCE_HOJE' || dataVencString.startsWith(hojeFormatado);
-
-            if (t.status === 'CONCLUIDO') {
-                concluidas++;
-                if (!t.atrasada) concluidasNoPrazo++;
-            } else {
-                ativas++;
-                if (t.atrasada) atrasadas++;
-                else if (isVenceHoje) vencemHoje++;
-            }
-        });
-
-        const taxaNoPrazo = concluidas > 0 ? Math.round((concluidasNoPrazo / concluidas) * 100) : 100;
-
-        return { ativas, vencemHoje, atrasadas, concluidas, taxaNoPrazo };
-    }, [stats?.tarefas]);
+        return { 
+            ativas: (kpis.em_andamento || 0) + (kpis.pendentes || 0), 
+            vencemHoje: rawTarefas.filter(t => isToday(t.prazo) && normalizeStatus(t.status) !== 'CONCLUIDO' && !t.atrasada).length, 
+            atrasadas: kpis.atrasadas_count || 0, 
+            concluidas: kpis.concluidas || 0, 
+            taxaNoPrazo: kpis.on_time_rate || 100 
+        };
+    }, [kpis, rawTarefas]);
 
     // Preparar dados do Gráfico Pie (Distribuição da Carteira)
     const distribuicao = [
@@ -120,11 +120,10 @@ const MyPerformance = () => {
 
     // Filtrar tarefas baseadas na Tab Smart
     const filteredTasks = rawTarefas.filter(t => {
-        const dataVencString = t.data_vencimento ? String(t.data_vencimento) : '';
-        const isVenceHoje = t.status === 'VENCE_HOJE' || dataVencString.startsWith(new Date().toISOString().split('T')[0]);
+        const isVenceHoje = isToday(t.prazo) || normalizeStatus(t.status) === 'VENCE_HOJE';
         if (activeTab === 'Atrasadas') return t.atrasada;
-        if (activeTab === 'Vencem Hoje') return isVenceHoje && !t.atrasada && t.status !== 'CONCLUIDO';
-        if (activeTab === 'Concluídas') return t.status === 'CONCLUIDO';
+        if (activeTab === 'Vencem Hoje') return isVenceHoje && !t.atrasada && normalizeStatus(t.status) !== 'CONCLUIDO';
+        if (activeTab === 'Concluídas') return normalizeStatus(t.status) === 'CONCLUIDO';
         return true;
     });
 
