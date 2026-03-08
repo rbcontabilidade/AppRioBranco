@@ -58,7 +58,26 @@ class MiscCRUD:
 
     @staticmethod
     def delete_cargo(cargo_id: int):
+        # A verificação de Foreign Key RESTRICT no banco impedirá a deleção
+        # caso existam cargo_niveis associados.
         return supabase.table("cargos_permissoes").delete().eq("id", cargo_id).execute()
+
+    @staticmethod
+    def get_cargo_niveis(cargo_id: int):
+        return supabase.table("cargo_niveis").select("*").eq("cargo_id", cargo_id).order("ordem").execute()
+
+    @staticmethod
+    def create_cargo_nivel(cargo_id: int, data: dict):
+        data["cargo_id"] = cargo_id
+        return supabase.table("cargo_niveis").insert(data).execute()
+
+    @staticmethod
+    def update_cargo_nivel(nivel_id: int, data: dict):
+        return supabase.table("cargo_niveis").update(data).eq("id", nivel_id).execute()
+
+    @staticmethod
+    def delete_cargo_nivel(nivel_id: int):
+        return supabase.table("cargo_niveis").delete().eq("id", nivel_id).execute()
 
     @staticmethod
     def get_global_config():

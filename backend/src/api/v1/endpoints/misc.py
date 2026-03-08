@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from src.models.misc import (
     SectorCreate, LogCreate, RotinaBaseCreate, RotinaBaseUpdate,
-    CargoCreate, CargoUpdate,
+    CargoCreate, CargoUpdate, CargoNivelCreate, CargoNivelUpdate,
     GlobalConfigUpdate
 )
 from src.crud.misc import MiscCRUD
@@ -65,6 +65,23 @@ def update_cargo(cargo_id: int, updates: CargoUpdate, user=CurrentUser):
 @router.delete("/cargos/{cargo_id}")
 def delete_cargo(cargo_id: int, user=CurrentUser):
     return MiscCRUD.delete_cargo(cargo_id).data
+
+# Níveis de Cargo
+@router.get("/cargos/{cargo_id}/niveis")
+def get_cargo_niveis(cargo_id: int, user=CurrentUser):
+    return MiscCRUD.get_cargo_niveis(cargo_id).data
+
+@router.post("/cargos/{cargo_id}/niveis")
+def create_cargo_nivel(cargo_id: int, nivel: CargoNivelCreate, user=CurrentUser):
+    return MiscCRUD.create_cargo_nivel(cargo_id, nivel.model_dump()).data
+
+@router.put("/cargos/{cargo_id}/niveis/{nivel_id}")
+def update_cargo_nivel(cargo_id: int, nivel_id: int, updates: CargoNivelUpdate, user=CurrentUser):
+    return MiscCRUD.update_cargo_nivel(nivel_id, updates.model_dump(exclude_unset=True)).data
+
+@router.delete("/cargos/{cargo_id}/niveis/{nivel_id}")
+def delete_cargo_nivel(cargo_id: int, nivel_id: int, user=CurrentUser):
+    return MiscCRUD.delete_cargo_nivel(nivel_id).data
 
 # Config Global
 @router.get("/global_config")

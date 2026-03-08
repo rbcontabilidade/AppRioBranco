@@ -1,198 +1,465 @@
 import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../../../components/ui/GlassCard/GlassCard';
 import { Button } from '../../../components/ui/Button/Button';
-import DataTable from '../../../components/ui/DataTable/DataTable';
 import api from '../../../services/api';
-import { Shield, Plus, Edit2, Trash2 } from 'lucide-react';
-import { SettingsModal } from './SettingsModal';
+import { 
+    Shield, Plus, Edit2, Trash2, ChevronDown, ChevronUp, 
+    Search, Layers, CheckSquare, X, ArrowUp, ArrowDown
+} from 'lucide-react';
+import { useDialog } from '../../../contexts/DialogContext';
+import styles from './RolesSettings.module.css';
 
 const AVAILABLE_SCREENS = [
-    { id: 'dashboard', label: 'Dashboard Resumo' },
-    { id: 'meu-desempenho', label: 'Meu Desempenho' },
-    { id: 'operacional', label: 'Painel Operacional' },
-    { id: 'mensagens', label: 'Mensagens Internas' },
-    { id: 'clientes', label: 'Gestão de Clientes' },
-    { id: 'rotinas', label: 'Rotinas e Fiscais' },
-    { id: 'competencias', label: 'Competências' },
-    { id: 'equipe', label: 'Visão de Equipe' },
-    { id: 'settings', label: 'Configurações de Admin' }
+    { id: 'dashboard', name: 'Dashboard' },
+    { id: 'import', name: 'Importação' },
+    { id: 'audit', name: 'Auditoria' },
+    { id: 'clients', name: 'Clientes' },
+    { id: 'tasks', name: 'Tarefas' },
+    { id: 'settings', name: 'Configurações' },
+    { id: 'reports', name: 'Relatórios' },
+    { id: 'rh', name: 'Recursos Humanos' }
 ];
 
 export const RolesSettings = () => {
     const [roles, setRoles] = useState([]);
+    const [levels, setLevels] = useState({});
     const [loading, setLoading] = useState(true);
-    const [modalOpen, setModalOpen] = useState(false);
-    const [editingId, setEditingId] = useState(null);
-    const [formData, setFormData] = useState({ nome_cargo: '', telas_permitidas: [] });
+    const [expandedRole, setExpandedRole] = useState(null);
+    const [activeTab, setActiveTab] = useState('permissions');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState('ALL');
+    const { showAlert, showConfirm } = useDialog();
 
-    const fetchRoles = async () => {
-        try {
-            setLoading(true);
-            const res = await api.get('/cargos');
-            setRoles(res.data || []);
-        } catch (err) {
-            console.error("Erro ao buscar cargos", err);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Modals state
+    const [roleModal, setRoleModal] = useState({ isOpen: false, data: null });
+    const [levelModal, setLevelModal] = useState({ isOpen: false, roleId: null, data: null });
 
     useEffect(() => {
         fetchRoles();
     }, []);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const fetchRoles = async () => {
         try {
-            // Converte o array da view em string JSON para salvar no DB
-            const payload = {
-                nome_cargo: formData.nome_cargo,
-                telas_permitidas: JSON.stringify(formData.telas_permitidas || [])
-            };
+            setLoading(true);
+            const response = await api.get('/misc/cargos');
+            // Mock default status if it does not exist on older rows
+            const rolesData = (response.data || []).map(r => ({ ...r, status: r.status !== false }));
+            setRoles(rolesData);
+        } catch (error) {
+            console.error('Error fetching roles:', error);
+            showAlert('Erro', 'Não foi possível carregar os cargos.', 'error');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-            if (editingId) {
-                await api.put(`/cargos/${editingId}`, payload);
-            } else {
-                await api.post('/cargos', payload);
+    const fetchLevels = async (roleId) => {
+        try {
+            const response = await api.get(`/misc/cargos/${roleId}/niveis`);
+            setLevels(prev => ({ ...prev, [roleId]: response.data || [] }));
+        } catch (error) {
+            console.error('Error fetching levels:', error);
+            showAlert('Erro', 'Não foi possível carregar os níveis do cargo.', 'error');
+        }
+    };
+
+    const handleExpandRole = (roleId) => {
+        if (expandedRole === roleId) {
+            setExpandedRole(null);
+        } else {
+            setExpandedRole(roleId);
+            setActiveTab('permissions');
+            if (!levels[roleId]) {
+                fetchLevels(roleId);
             }
-            setModalOpen(false);
-            setFormData({ nome_cargo: '', telas_permitidas: [] });
-            setEditingId(null);
+        }
+    };
+
+    // --- Role Actions ---
+    const handleSaveRole = async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const permissions = AVAILABLE_SCREENS.filter(s => formData.get(`perm_${s.id}`) === 'on').map(s => s.id);
+        
+        const payload = {
+            nome_cargo: formData.get('nome_cargo'),
+            status: formData.get('status') === 'on',
+            telas_permitidas: permissions
+        };
+
+        try {
+            if (roleModal.data?.id) {
+                await api.put(`/misc/cargos/${roleModal.data.id}`, payload);
+                showAlert('Sucesso', 'Cargo atualizado com sucesso.', 'success');
+            } else {
+                await api.post('/misc/cargos', payload);
+                showAlert('Sucesso', 'Cargo criado com sucesso.', 'success');
+            }
+            setRoleModal({ isOpen: false, data: null });
             fetchRoles();
-        } catch (err) {
-            alert("Erro ao salvar o cargo.");
+        } catch (error) {
+            console.error('Error saving role:', error);
+            showAlert('Erro', 'Falha ao salvar cargo.', 'error');
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm("Atenção: Deletar este cargo removerá as permissões dos funcionários associados. Deseja continuar?")) return;
+    const handleDeleteRole = async (roleId, e) => {
+        e.stopPropagation();
+        
+        const hasLevels = levels[roleId] && levels[roleId].length > 0;
+        
+        showConfirm(
+            'Excluir Cargo',
+            hasLevels 
+                ? 'Este cargo possui níveis cadastrados. Excluir o cargo também excluirá ou restringirá os níveis (dependendo das regras). Deseja realmente prosseguir?' 
+                : 'Tem certeza que deseja excluir este cargo? Esta ação é irreversível.',
+            async () => {
+                try {
+                    await api.delete(`/misc/cargos/${roleId}`);
+                    showAlert('Sucesso', 'Cargo excluído com sucesso.', 'success');
+                    fetchRoles();
+                    if (expandedRole === roleId) setExpandedRole(null);
+                } catch (error) {
+                    console.error('Error deleting role:', error);
+                    showAlert('Erro', 'Não foi possível excluir o cargo. Verifique dependências.', 'error');
+                }
+            }
+        );
+    };
+
+    // --- Level Actions ---
+    const handleSaveLevel = async (e) => {
+        e.preventDefault();
+        const roleId = levelModal.roleId;
+        const formData = new FormData(e.target);
+        
+        const payload = {
+            nome_nivel: formData.get('nome_nivel'),
+            descricao: formData.get('descricao') || '',
+            ordem: parseInt(formData.get('ordem') || '0', 10),
+            status: formData.get('status') === 'on'
+        };
+
         try {
-            await api.delete(`/cargos/${id}`);
-            fetchRoles();
-        } catch (err) {
-            alert("Erro ao excluir o cargo.");
+            if (levelModal.data?.id) {
+                await api.put(`/misc/cargos/${roleId}/niveis/${levelModal.data.id}`, payload);
+                showAlert('Sucesso', 'Nível atualizado.', 'success');
+            } else {
+                await api.post(`/misc/cargos/${roleId}/niveis`, payload);
+                showAlert('Sucesso', 'Nível adicionado.', 'success');
+            }
+            setLevelModal({ isOpen: false, roleId: null, data: null });
+            fetchLevels(roleId);
+        } catch (error) {
+            console.error('Error saving level:', error);
+            showAlert('Erro', 'Falha ao salvar nível. Verifique a ordem/nome repetido.', 'error');
         }
     };
 
-    const openEdit = (role) => {
-        setEditingId(role.id);
+    const handleDeleteLevel = (roleId, levelId) => {
+        showConfirm(
+            'Excluir Nível',
+            'Confirma a exclusão deste nível hierárquico?',
+            async () => {
+                try {
+                    await api.delete(`/misc/cargos/${roleId}/niveis/${levelId}`);
+                    showAlert('Sucesso', 'Nível excluído.', 'success');
+                    fetchLevels(roleId);
+                } catch (error) {
+                    console.error('Error', error);
+                    showAlert('Erro', 'Falha ao excluir nível.', 'error');
+                }
+            }
+        );
+    };
 
-        let telasArray = [];
+    const reorderLevel = async (roleId, level, direction) => {
+        const roleLevels = [...(levels[roleId] || [])].sort((a,b) => a.ordem - b.ordem);
+        const index = roleLevels.findIndex(l => l.id === level.id);
+        if ((direction === 'up' && index === 0) || (direction === 'down' && index === roleLevels.length - 1)) return;
+
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        const targetLevel = roleLevels[targetIndex];
+
+        // Swap order in UI optimistically
+        const newOrder = targetLevel.ordem;
+        const oldOrder = level.ordem;
+        
         try {
-            telasArray = JSON.parse(role.telas_permitidas || '[]');
-        } catch (e) {
-            telasArray = [];
+            // Need to update both to swap orders to prevent unique constraint if active.
+            // Safe approach: set to negative temp, update target, update source
+            await api.put(`/misc/cargos/${roleId}/niveis/${level.id}`, { ordem: -999 });
+            await api.put(`/misc/cargos/${roleId}/niveis/${targetLevel.id}`, { ordem: oldOrder });
+            await api.put(`/misc/cargos/${roleId}/niveis/${level.id}`, { ordem: newOrder });
+            fetchLevels(roleId);
+        } catch (error) {
+            console.error('Swap error', error);
+            showAlert('Erro', 'Falha ao reordenar', 'error');
+            fetchLevels(roleId); // revert optimistic
         }
-
-        setFormData({
-            nome_cargo: role.nome_cargo,
-            telas_permitidas: Array.isArray(telasArray) ? telasArray : []
-        });
-        setModalOpen(true);
     };
 
-    const handleScreenToggle = (screenId) => {
-        setFormData(prev => {
-            const currentObj = prev.telas_permitidas || [];
-            const hasScreen = currentObj.includes(screenId);
-            return {
-                ...prev,
-                telas_permitidas: hasScreen
-                    ? currentObj.filter(id => id !== screenId)
-                    : [...currentObj, screenId]
-            };
-        });
-    };
+    // --- Renders ---
+    const filteredRoles = roles.filter(role => {
+        const matchesSearch = role.nome_cargo.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesStatus = statusFilter === 'ALL' || 
+                             (statusFilter === 'ACTIVE' && role.status) || 
+                             (statusFilter === 'INACTIVE' && !role.status);
+        return matchesSearch && matchesStatus;
+    });
 
-    const tableColumns = ['ID', 'Nome do Cargo', 'Telas Permitidas (Acesso)', 'Ações'];
-
-    const formatTelas = (telasStr) => {
-        try {
-            const arr = JSON.parse(telasStr || '[]');
-            if (arr.length > 3) return arr.slice(0, 3).join(', ') + ` (+${arr.length - 3} telas)`;
-            return arr.join(', ') || 'Nenhuma';
-        } catch {
-            return telasStr || 'Nenhuma';
-        }
-    }
-
-    const tableData = roles.map(row => [
-        row.id,
-        row.nome_cargo,
-        formatTelas(row.telas_permitidas),
-        <div style={{ display: 'flex', gap: '8px' }}>
-            <Button variant="secondary" size="small" onClick={() => openEdit(row)}><Edit2 size={14} /></Button>
-            <Button variant="danger" size="small" onClick={() => handleDelete(row.id)}><Trash2 size={14} /></Button>
+    const renderPermissionsPanel = (role) => (
+        <div className={styles.permissionsGrid}>
+            {AVAILABLE_SCREENS.map(screen => {
+                const isAllowed = role.telas_permitidas?.includes(screen.id);
+                return (
+                    <div key={screen.id} className={`${styles.permissionCard} ${isAllowed ? styles.permissionCardActive : ''}`}>
+                        <CheckSquare size={20} className={styles.permIcon} />
+                        <div className={styles.permInfo}>
+                            <span className={styles.permName}>{screen.name}</span>
+                        </div>
+                    </div>
+                );
+            })}
         </div>
-    ]);
+    );
+
+    const renderLevelsPanel = (roleId) => {
+        const roleLevels = levels[roleId] || [];
+        
+        return (
+            <div className={styles.levelsSection}>
+                <div className={styles.levelsHeader}>
+                    <p className={styles.subtitle}>Gerencie a hierarquia deste cargo (Ex: Junior, Pleno, Senior)</p>
+                    <Button size="small" onClick={() => setLevelModal({ isOpen: true, roleId, data: null })}>
+                        <Plus size={16} /> Adicionar Nível
+                    </Button>
+                </div>
+                
+                {roleLevels.length === 0 ? (
+                    <div className={styles.emptyState}>
+                        <Layers size={48} className={styles.emptyIcon} />
+                        <h4 className={styles.emptyTitle}>Sem Níveis Hierárquicos</h4>
+                        <p className={styles.emptyText}>Este cargo é genérico e não possui variações de níveis. Adicione níveis para criar uma escada de progressão.</p>
+                    </div>
+                ) : (
+                    <div className={styles.levelsList}>
+                        {roleLevels.sort((a,b) => a.ordem - b.ordem).map((level, idx, arr) => (
+                            <div key={level.id} className={styles.levelItem}>
+                                <div style={{display: 'flex', alignItems: 'center'}}>
+                                    <div className={styles.reorderBtns}>
+                                        <button className={styles.orderBtn} disabled={idx === 0} onClick={() => reorderLevel(roleId, level, 'up')} title="Mover para cima"><ArrowUp size={14} /></button>
+                                        <button className={styles.orderBtn} disabled={idx === arr.length - 1} onClick={() => reorderLevel(roleId, level, 'down')} title="Mover para baixo"><ArrowDown size={14} /></button>
+                                    </div>
+                                    <div className={styles.levelOrder}>{level.ordem}</div>
+                                    <div className={styles.levelDetails}>
+                                        <span className={styles.levelName}>
+                                            {level.nome_nivel} 
+                                            {!level.status && <span style={{marginLeft: 8, fontSize: '0.7em', color: '#f87171'}}>(Inativo)</span>}
+                                        </span>
+                                        <span className={styles.levelDesc}>{level.descricao || 'Sem descrição'}</span>
+                                    </div>
+                                </div>
+                                <div className={styles.levelActions}>
+                                    <Button size="small" variant="ghost" onClick={() => setLevelModal({ isOpen: true, roleId, data: level })} title="Editar Nível">
+                                        <Edit2 size={16} />
+                                    </Button>
+                                    <Button size="small" variant="ghost" className="text-danger" onClick={() => handleDeleteLevel(roleId, level.id)} title="Excluir Nível">
+                                        <Trash2 size={16} />
+                                    </Button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className={styles.container}>
+            <div className={styles.header}>
                 <div>
-                    <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--text-light)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Shield className="text-secondary" /> Cargos e Níveis
-                    </h2>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                        Gerencie os papéis e o que cada perfil pode acessar no sistema.
-                    </p>
+                    <h2 className={styles.title}><Shield size={24} /> Cargos e Níveis</h2>
+                    <p className={styles.subtitle}>Gerencie permissões de sistema e a estrutura hierárquica</p>
                 </div>
-                <Button variant="primary" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={() => { setEditingId(null); setFormData({ nome_cargo: '', telas_permitidas: [] }); setModalOpen(true); }}>
-                    <Plus size={16} /> Novo Cargo
+                <Button onClick={() => setRoleModal({ isOpen: true, data: null })}>
+                    <Plus size={18} /> Novo Cargo
                 </Button>
             </div>
 
-            <GlassCard style={{ padding: '0', overflow: 'hidden' }}>
-                <DataTable
-                    columns={tableColumns}
-                    data={tableData}
-                    loading={loading}
-                    emptyMessage="Nenhum cargo cadsatrado."
-                />
-            </GlassCard>
+            <div className={styles.topBar}>
+                <div className={styles.searchWrapper}>
+                    <Search size={18} className={styles.searchIcon} />
+                    <input 
+                        type="text" 
+                        placeholder="Buscar cargo..." 
+                        className={styles.searchInput}
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
+                <select 
+                    className={styles.filterSelect}
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                    <option value="ALL">Todos os Status</option>
+                    <option value="ACTIVE">Apenas Ativos</option>
+                    <option value="INACTIVE">Apenas Inativos</option>
+                </select>
+                <div className={styles.resultsCounter}>
+                    {filteredRoles.length} cargo(s)
+                </div>
+            </div>
 
-            <SettingsModal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? 'Editar Cargo' : 'Novo Cargo'}>
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div>
-                        <label style={{ color: 'var(--text-light)', fontSize: '0.85rem' }}>Nome do Cargo (Ex: Gerente Fiscal) *</label>
-                        <input
-                            type="text"
-                            required
-                            className="glass-input"
-                            value={formData.nome_cargo}
-                            onChange={(e) => setFormData({ ...formData, nome_cargo: e.target.value })}
-                            placeholder="Nome de Exibição"
-                        />
-                    </div>
-                    <div>
-                        <label style={{ color: 'var(--text-light)', fontSize: '0.85rem', marginBottom: '8px', display: 'block' }}>Telas Permitidas no Menu</label>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '12px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                            {AVAILABLE_SCREENS.map(screen => {
-                                const isChecked = formData.telas_permitidas.includes(screen.id);
-                                return (
-                                    <label key={screen.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', color: isChecked ? 'var(--text-light)' : 'var(--text-muted)', cursor: 'pointer', transition: 'all 0.2s', fontSize: '0.85rem' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={isChecked}
-                                            onChange={() => handleScreenToggle(screen.id)}
-                                            style={{ accentColor: 'var(--primary-color)', width: '16px', height: '16px', cursor: 'pointer' }}
-                                        />
-                                        {screen.label}
-                                    </label>
-                                );
-                            })}
+            {loading ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Mapeando sistema de cargos...</div>
+            ) : (
+                <div className={styles.rolesList}>
+                    {filteredRoles.map(role => {
+                        const isExpanded = expandedRole === role.id;
+                        return (
+                            <div key={role.id} className={`${styles.roleCard} ${isExpanded ? styles.roleCardExpanded : ''}`}>
+                                <div className={styles.roleHeader} onClick={() => handleExpandRole(role.id)}>
+                                    <div className={styles.roleInfo}>
+                                        <span className={styles.roleName}>{role.nome_cargo}</span>
+                                        <div className={styles.roleMeta}>
+                                            <span className={styles.metaItem}>
+                                                <CheckSquare size={14} /> {(role.telas_permitidas || []).length} Permissões
+                                            </span>
+                                            <span className={`${styles.statusBadge} ${role.status ? styles.statusActive : styles.statusInactive}`}>
+                                                {role.status ? 'Ativo' : 'Inativo'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className={styles.roleActions}>
+                                        <Button size="small" variant="ghost" onClick={(e) => { e.stopPropagation(); setRoleModal({ isOpen: true, data: role }); }}>
+                                            <Edit2 size={16} />
+                                        </Button>
+                                        <Button size="small" variant="ghost" className="text-danger" onClick={(e) => handleDeleteRole(role.id, e)}>
+                                            <Trash2 size={16} />
+                                        </Button>
+                                        <button className={styles.expandBtn}>
+                                            <ChevronDown size={20} className={`${styles.expandIcon} ${isExpanded ? styles.expandIconOpen : ''}`} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {isExpanded && (
+                                    <div className={styles.roleContent}>
+                                        <div className={styles.tabs}>
+                                            <button 
+                                                className={`${styles.tabBtn} ${activeTab === 'permissions' ? styles.tabActive : ''}`}
+                                                onClick={() => setActiveTab('permissions')}
+                                            >
+                                                <Shield size={16} /> Permissões Base
+                                            </button>
+                                            <button 
+                                                className={`${styles.tabBtn} ${activeTab === 'levels' ? styles.tabActive : ''}`}
+                                                onClick={() => setActiveTab('levels')}
+                                            >
+                                                <Layers size={16} /> Níveis Hierárquicos
+                                            </button>
+                                        </div>
+                                        <div className={styles.tabContent}>
+                                            {activeTab === 'permissions' ? renderPermissionsPanel(role) : renderLevelsPanel(role.id)}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                    
+                    {!loading && filteredRoles.length === 0 && (
+                        <div className={styles.emptyState}>
+                            <Shield size={48} className={styles.emptyIcon} />
+                            <h4 className={styles.emptyTitle}>Nenhum Cargo Encontrado</h4>
+                            <p className={styles.emptyText}>Não localizamos cargos com os filtros atuais. Adicione novos cargos no botão superior.</p>
                         </div>
-                        <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '8px', display: 'block' }}>
-                            Selecione as telas que membros deste cargo terão acesso no painel. O restante será ocultado.
-                        </small>
-                    </div>
+                    )}
+                </div>
+            )}
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
-                        <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>Cancelar</Button>
-                        <Button type="submit" variant="primary">Salvar Perfil</Button>
-                    </div>
-                </form>
-            </SettingsModal>
+            {/* Custom Simple Modals as Overlays directly (Ensuring Premium UI without wrapper conflicts) */}
+            {roleModal.isOpen && (
+                <div style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000}}>
+                    <GlassCard style={{ width: '100%', maxWidth: '600px', padding: '24px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-light)' }}>{roleModal.data ? 'Editar Cargo Base' : 'Novo Cargo Base'}</h3>
+                            <button onClick={() => setRoleModal({ isOpen: false, data: null })} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}><X size={20}/></button>
+                        </div>
+                        <form onSubmit={handleSaveRole}>
+                            <div className={styles.formGroup}>
+                                <label className={styles.formLabel}>Nome do Cargo</label>
+                                <input type="text" name="nome_cargo" required className={styles.formInput} defaultValue={roleModal.data?.nome_cargo || ''} placeholder="Ex: Analista Fiscal" />
+                            </div>
+                            
+                            <label className={styles.formCheckbox}>
+                                <input type="checkbox" name="status" className={styles.checkboxInput} defaultChecked={roleModal.data ? roleModal.data.status : true} />
+                                Ativo no sistema
+                            </label>
+
+                            <h4 style={{ color: 'var(--text-light)', marginTop: '24px', marginBottom: '12px', fontSize: '1rem' }}>Concessão de Telas</h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                {AVAILABLE_SCREENS.map(screen => (
+                                    <label key={screen.id} className={styles.formCheckbox}>
+                                        <input 
+                                            type="checkbox" 
+                                            name={`perm_${screen.id}`} 
+                                            className={styles.checkboxInput} 
+                                            defaultChecked={roleModal.data?.telas_permitidas?.includes(screen.id)}
+                                        />
+                                        {screen.name}
+                                    </label>
+                                ))}
+                            </div>
+
+                            <div className={styles.modalFooter}>
+                                <Button type="button" variant="ghost" onClick={() => setRoleModal({ isOpen: false, data: null })}>Cancelar</Button>
+                                <Button type="submit">Salvar Cargo</Button>
+                            </div>
+                        </form>
+                    </GlassCard>
+                </div>
+            )}
+
+            {levelModal.isOpen && (
+                <div style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000}}>
+                    <GlassCard style={{ width: '100%', maxWidth: '500px', padding: '24px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-light)' }}>{levelModal.data ? 'Editar Nível' : 'Novo Nível'}</h3>
+                            <button onClick={() => setLevelModal({ isOpen: false, roleId: null, data: null })} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}><X size={20}/></button>
+                        </div>
+                        <form onSubmit={handleSaveLevel}>
+                            <div className={styles.formGroup}>
+                                <label className={styles.formLabel}>Nome Deste Nível</label>
+                                <input type="text" name="nome_nivel" required className={styles.formInput} defaultValue={levelModal.data?.nome_nivel || ''} placeholder="Ex: Junior" />
+                            </div>
+                            
+                            <div className={styles.formGroup}>
+                                <label className={styles.formLabel}>Ordem de Precedência (Progressão Numérica)</label>
+                                <input type="number" name="ordem" required className={styles.formInput} defaultValue={levelModal.data?.ordem || (levels[levelModal.roleId]?.length > 0 ? Math.max(...levels[levelModal.roleId].map(l => l.ordem)) + 1 : 1)} min="1" />
+                            </div>
+
+                            <div className={styles.formGroup}>
+                                <label className={styles.formLabel}>Descrição de Escopo (Opcional)</label>
+                                <input type="text" name="descricao" className={styles.formInput} defaultValue={levelModal.data?.descricao || ''} placeholder="Breve descrição dos requisitos deste nível" />
+                            </div>
+
+                            <label className={styles.formCheckbox}>
+                                <input type="checkbox" name="status" className={styles.checkboxInput} defaultChecked={levelModal.data ? levelModal.data.status : true} />
+                                Status Ativo
+                            </label>
+
+                            <div className={styles.modalFooter}>
+                                <Button type="button" variant="ghost" onClick={() => setLevelModal({ isOpen: false, roleId: null, data: null })}>Cancelar</Button>
+                                <Button type="submit">Salvar Nível</Button>
+                            </div>
+                        </form>
+                    </GlassCard>
+                </div>
+            )}
         </div>
     );
 };

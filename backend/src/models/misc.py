@@ -29,10 +29,24 @@ class RotinaBaseUpdate(BaseModel):
 class CargoCreate(BaseModel):
     nome_cargo: str
     telas_permitidas: list = []
+    status: bool = True
 
 class CargoUpdate(BaseModel):
     nome_cargo: str | None = None
     telas_permitidas: list | None = None
+    status: bool | None = None
+
+class CargoNivelCreate(BaseModel):
+    nome_nivel: str
+    descricao: str | None = None
+    ordem: int
+    status: bool = True
+
+class CargoNivelUpdate(BaseModel):
+    nome_nivel: str | None = None
+    descricao: str | None = None
+    ordem: int | None = None
+    status: bool | None = None
 
 class GlobalConfigUpdate(BaseModel):
     brand_name: str | None = None
