@@ -79,17 +79,27 @@ const RolesSettings = () => {
     const fetchRoles = async () => {
         try {
             setLoading(true);
-            const data = await getCargos();
+            console.log('🚀 [RolesSettings] Iniciando fetchRoles...');
+            const response = await getCargos();
+            console.log('📦 [RolesSettings] Resposta bruta da API:', response);
             
+            // Garantir que temos um array
+            const rawData = Array.isArray(response) ? response : (response?.data && Array.isArray(response.data) ? response.data : []);
+            console.log('🔍 [RolesSettings] Dados extraídos para processamento:', rawData);
+
+            if (!Array.isArray(rawData)) {
+                throw new Error('A API não retornou um formato de lista válido.');
+            }
+
             // Normalização de dados para compatibilidade total
-            const normalizedData = (data || []).map(role => {
+            const normalizedData = rawData.map(role => {
                 // 1. Normalizar Telas (Pode vir como string JSON em registros antigos)
                 let normalizedTelas = role.telas_permitidas;
                 if (typeof normalizedTelas === 'string') {
                     try {
                         normalizedTelas = JSON.parse(normalizedTelas);
                     } catch (e) {
-                        console.warn(`Erro ao parsear telas do cargo ${role.id}:`, e);
+                        console.warn(`⚠️ [RolesSettings] Erro ao parsear telas do cargo ${role.id}:`, e);
                         normalizedTelas = [];
                     }
                 }
@@ -100,21 +110,27 @@ const RolesSettings = () => {
                 if (typeof normalizedStatus === 'boolean') {
                     normalizedStatus = normalizedStatus ? 'ativo' : 'inativo';
                 }
-                if (!normalizedStatus) normalizedStatus = 'ativo'; // Fallback padrão
+                
+                // Fallback para nulos ou indefinidos (compatibilidade legado)
+                if (normalizedStatus === null || normalizedStatus === undefined) {
+                    normalizedStatus = 'ativo';
+                }
 
                 return {
                     ...role,
                     telas_permitidas: normalizedTelas,
-                    status: normalizedStatus.toLowerCase()
+                    status: String(normalizedStatus).toLowerCase()
                 };
             });
 
+            console.log('✅ [RolesSettings] Dados normalizados com sucesso:', normalizedData);
             setRoles(normalizedData);
             setError(null);
         } catch (err) {
-            console.error('Erro ao carregar cargos:', err);
-            setError('Não foi possível carregar os cargos do sistema.');
-            showToast('Erro ao carregar dados dos cargos', 'error');
+            console.error('❌ [RolesSettings] Erro crítico ao carregar cargos:', err);
+            const errorMsg = err.response?.data?.detail || err.message || 'Erro desconhecido';
+            setError(`Erro ao carregar cargos: ${errorMsg}`);
+            showToast(`Erro na integração de dados: ${errorMsg}`, 'error');
         } finally {
             setLoading(false);
         }
