@@ -80,7 +80,36 @@ const RolesSettings = () => {
         try {
             setLoading(true);
             const data = await getCargos();
-            setRoles(data || []);
+            
+            // Normalização de dados para compatibilidade total
+            const normalizedData = (data || []).map(role => {
+                // 1. Normalizar Telas (Pode vir como string JSON em registros antigos)
+                let normalizedTelas = role.telas_permitidas;
+                if (typeof normalizedTelas === 'string') {
+                    try {
+                        normalizedTelas = JSON.parse(normalizedTelas);
+                    } catch (e) {
+                        console.warn(`Erro ao parsear telas do cargo ${role.id}:`, e);
+                        normalizedTelas = [];
+                    }
+                }
+                if (!Array.isArray(normalizedTelas)) normalizedTelas = [];
+
+                // 2. Normalizar Status (Pode vir como booleano true/false ou string 'ativo'/'inativo')
+                let normalizedStatus = role.status;
+                if (typeof normalizedStatus === 'boolean') {
+                    normalizedStatus = normalizedStatus ? 'ativo' : 'inativo';
+                }
+                if (!normalizedStatus) normalizedStatus = 'ativo'; // Fallback padrão
+
+                return {
+                    ...role,
+                    telas_permitidas: normalizedTelas,
+                    status: normalizedStatus.toLowerCase()
+                };
+            });
+
+            setRoles(normalizedData);
             setError(null);
         } catch (err) {
             console.error('Erro ao carregar cargos:', err);
@@ -94,8 +123,12 @@ const RolesSettings = () => {
     // Filtragem de cargos
     const filteredRoles = useMemo(() => {
         return roles.filter(role => {
-            const matchesSearch = role.nome_cargo?.toLowerCase().includes(searchTerm.toLowerCase());
+            const roleName = role.nome_cargo || '';
+            const matchesSearch = roleName.toLowerCase().includes(searchTerm.toLowerCase());
+            
+            // Filtro de status robusto
             const matchesStatus = statusFilter === 'all' || role.status === statusFilter;
+            
             return matchesSearch && matchesStatus;
         });
     }, [roles, searchTerm, statusFilter]);

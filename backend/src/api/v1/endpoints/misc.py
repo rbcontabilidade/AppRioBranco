@@ -50,12 +50,12 @@ def create_log(log: LogCreate, user=CurrentUser):
     return MiscCRUD.create_log(log.model_dump()).data
 
 # Cargos
-@router.get("/cargos")
+@router.get("/cargos_permissoes")
 def get_cargos(user=CurrentUser):
     res = MiscCRUD.get_cargos()
     return res.data
 
-@router.post("/cargos")
+@router.post("/cargos_permissoes")
 def create_cargo(cargo: CargoCreate, user=CurrentUser):
     try:
         res = MiscCRUD.create_cargo(cargo.model_dump())
@@ -70,7 +70,7 @@ def create_cargo(cargo: CargoCreate, user=CurrentUser):
             raise HTTPException(status_code=400, detail="Já existe um cargo com este nome.")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.put("/cargos/{cargo_id}")
+@router.put("/cargos_permissoes/{cargo_id}")
 def update_cargo(cargo_id: int, updates: CargoUpdate, user=CurrentUser):
     try:
         res = MiscCRUD.update_cargo(cargo_id, updates.model_dump(exclude_unset=True))
@@ -84,7 +84,7 @@ def update_cargo(cargo_id: int, updates: CargoUpdate, user=CurrentUser):
             raise HTTPException(status_code=400, detail="Já existe um cargo com este nome.")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/cargos/{cargo_id}")
+@router.delete("/cargos_permissoes/{cargo_id}")
 def delete_cargo(cargo_id: int, user=CurrentUser):
     try:
         res = MiscCRUD.delete_cargo(cargo_id)
@@ -99,19 +99,19 @@ def delete_cargo(cargo_id: int, user=CurrentUser):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Níveis de Cargo
-@router.get("/cargos/{cargo_id}/niveis")
+@router.get("/cargos_permissoes/{cargo_id}/niveis")
 def get_cargo_niveis(cargo_id: int, user=CurrentUser):
     return MiscCRUD.get_cargo_niveis(cargo_id).data
 
-@router.post("/cargos/{cargo_id}/niveis")
+@router.post("/cargos_permissoes/{cargo_id}/niveis")
 def create_cargo_nivel(cargo_id: int, nivel: CargoNivelCreate, user=CurrentUser):
     return MiscCRUD.create_cargo_nivel(cargo_id, nivel.model_dump()).data
 
-@router.put("/cargos/{cargo_id}/niveis/{nivel_id}")
+@router.put("/cargos_permissoes/{cargo_id}/niveis/{nivel_id}")
 def update_cargo_nivel(cargo_id: int, nivel_id: int, updates: CargoNivelUpdate, user=CurrentUser):
     return MiscCRUD.update_cargo_nivel(nivel_id, updates.model_dump(exclude_unset=True)).data
 
-@router.delete("/cargos/{cargo_id}/niveis/{nivel_id}")
+@router.delete("/cargos_permissoes/{cargo_id}/niveis/{nivel_id}")
 def delete_cargo_nivel(cargo_id: int, nivel_id: int, user=CurrentUser):
     return MiscCRUD.delete_cargo_nivel(nivel_id).data
 
