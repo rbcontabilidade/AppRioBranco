@@ -52,8 +52,18 @@ def create_log(log: LogCreate, user=CurrentUser):
 # Cargos
 @router.get("/cargos_permissoes")
 def get_cargos(user=CurrentUser):
-    res = MiscCRUD.get_cargos()
-    return res.data
+    try:
+        print("🔍 [Backend] Iniciando busca de cargos...")
+        res = MiscCRUD.get_cargos()
+        if hasattr(res, 'error') and res.error:
+            print(f"❌ [Backend] Erro do Supabase ao buscar cargos: {res.error}")
+            return []
+        data = res.data or []
+        print(f"✅ [Backend] Busca finalizada. Encontrados {len(data)} cargos.")
+        return data
+    except Exception as e:
+        print(f"❌ [Backend] Exceção crítica ao buscar cargos: {e}")
+        return []
 
 @router.post("/cargos_permissoes")
 def create_cargo(cargo: CargoCreate, user=CurrentUser):
@@ -101,7 +111,18 @@ def delete_cargo(cargo_id: int, user=CurrentUser):
 # Níveis de Cargo
 @router.get("/cargos_permissoes/{cargo_id}/niveis")
 def get_cargo_niveis(cargo_id: int, user=CurrentUser):
-    return MiscCRUD.get_cargo_niveis(cargo_id).data
+    try:
+        print(f"🔍 [Backend] Buscando níveis para o cargo ID: {cargo_id}")
+        res = MiscCRUD.get_cargo_niveis(cargo_id)
+        if hasattr(res, 'error') and res.error:
+            print(f"❌ [Backend] Erro do Supabase ao buscar níveis: {res.error}")
+            return []
+        data = res.data or []
+        print(f"✅ [Backend] Busca de níveis finalizada. Encontrados {len(data)} níveis.")
+        return data
+    except Exception as e:
+        print(f"❌ [Backend] Exceção ao buscar níveis: {e}")
+        return []
 
 @router.post("/cargos_permissoes/{cargo_id}/niveis")
 def create_cargo_nivel(cargo_id: int, nivel: CargoNivelCreate, user=CurrentUser):
