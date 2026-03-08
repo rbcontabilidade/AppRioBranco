@@ -427,10 +427,6 @@ const MyPerformance = () => {
                                 <tr key={t.id}>
                                     <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{t.titulo}</td>
                                     <td>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                            <span style={{ fontSize: '0.85rem' }}>{t.processo}</span>
-                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{t.cliente}</span>
-                                        </div>
                                     </td>
                                     <td>
                                         <span className={`${styles.taskBadge}`} style={{
