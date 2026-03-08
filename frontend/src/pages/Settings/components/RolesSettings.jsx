@@ -18,7 +18,7 @@ import {
     Info,
     Layout,
     ArrowUp,
-    ArrowDown,
+    RefreshCw,
     Save,
     X
 } from 'lucide-react';
@@ -405,7 +405,24 @@ const RolesSettings = () => {
 
             {/* Listagem de Cargos */}
             <div className={styles.rolesList}>
-                {filteredRoles.length > 0 ? (
+                {loading ? (
+                    <div className={styles.loadingContainer}>
+                        <div className={styles.spinner}></div>
+                        <p>Carregando cargos do sistema...</p>
+                    </div>
+                ) : error ? (
+                    <div className={styles.errorState}>
+                        <AlertCircle size={48} className={styles.errorIcon} />
+                        <h4>Falha na Integração</h4>
+                        <p>{error}</p>
+                        <div className={styles.errorActions}>
+                            <button className="btn-primary" onClick={fetchRoles}>
+                                <RefreshCw size={16} />
+                                Tentar Novamente
+                            </button>
+                        </div>
+                    </div>
+                ) : filteredRoles.length > 0 ? (
                     filteredRoles.map(role => (
                         <div 
                             key={role.id} 
@@ -586,10 +603,22 @@ const RolesSettings = () => {
                     <div className={styles.emptyState}>
                         <AlertCircle size={48} />
                         <h4>Nenhum cargo encontrado</h4>
-                        <p>Tente ajustar seus filtros de busca ou crie um novo cargo para começar.</p>
-                        <button className="btn-secondary" onClick={() => {setSearchTerm(''); setStatusFilter('all');}}>
-                            Limpar Filtros
-                        </button>
+                        <p>
+                            {searchTerm || statusFilter !== 'all' 
+                                ? 'Tente ajustar seus filtros de busca ou limpe os filtros para ver todos os cargos.' 
+                                : 'Não há cargos cadastrados no sistema.'}
+                        </p>
+                        <div className={styles.emptyActions}>
+                            {(searchTerm || statusFilter !== 'all') && (
+                                <button className="btn-secondary" onClick={() => {setSearchTerm(''); setStatusFilter('all');}}>
+                                    Limpar Filtros
+                                </button>
+                            )}
+                            <button className="btn-primary" onClick={handleAddRole}>
+                                <Plus size={16} />
+                                Criar Primeiro Cargo
+                            </button>
+                        </div>
                     </div>
                 )}
             </div>
