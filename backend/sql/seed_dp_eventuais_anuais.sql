@@ -1,17 +1,21 @@
 -- =========================================================================
--- SEED SCRIPT: PROCESSOS EVENTUAIS E ANUAIS DEPARTAMENTO PESSOAL (DP)
+-- SEED SCRIPT REVISADO: PROCESSOS EVENTUAIS E ANUAIS DEPARTAMENTO PESSOAL (DP)
 -- Baseado em: rotinas_dp.md
+-- Este script garante a inserção mesmo que os processos já existam (idempotente)
 -- =========================================================================
 
 DO $$
 DECLARE
-    -- IDs de Referência (Baseados no seed_processos_dp.sql existente)
+    -- IDs de Referência
     id_setor_dp INTEGER := 3;
     id_lili     INTEGER := 14;
 
     v_proc_id   INTEGER;
     v_task_id   INTEGER;
 BEGIN
+    -- FUNÇÃO AUXILIAR PARA PEGAR OU CRIAR PROCESSO
+    -- (Como não podemos criar funções dentro de DO sem ser permanente, vamos usar lógica inline)
+
     -- 1. ADMISSÃO (Eventual)
     INSERT INTO rh_processos (nome, descricao, frequencia, setor_id)
     VALUES ('Admissão de Funcionário', 'Processo de integração de novo colaborador.', 'Eventual', id_setor_dp)
@@ -109,62 +113,46 @@ BEGIN
         (v_task_id, 'Programação para o próximo ano')
     ON CONFLICT DO NOTHING;
 
-    -- 6. DEMAIS ROTINAS SIMPLES (Eventuais)
+    -- 6. DEMAIS ROTINAS (Garantindo que IDs sejam recuperados se já existirem)
+    
     -- Recálculo FGTS
-    INSERT INTO rh_processos (nome, frequencia, setor_id) VALUES ('Recálculo de FGTS', 'Eventual', id_setor_dp) ON CONFLICT (nome) DO NOTHING RETURNING id INTO v_proc_id;
-    IF v_proc_id IS NOT NULL THEN
-        INSERT INTO rh_tarefas (processo_id, titulo, ordem, prazo_descricao, setor_id, entregavel) VALUES (v_proc_id, 'Executar Recálculo', 1, '2 dias', id_setor_dp, 'FGTS recalculado') ON CONFLICT DO NOTHING RETURNING id INTO v_task_id;
-        INSERT INTO rh_tarefas_responsaveis (tarefa_id, funcionario_id) VALUES (v_task_id, id_lili) ON CONFLICT DO NOTHING;
-    END IF;
+    INSERT INTO rh_processos (nome, frequencia, setor_id) VALUES ('Recálculo de FGTS', 'Eventual', id_setor_dp) ON CONFLICT (nome) DO UPDATE SET setor_id = EXCLUDED.setor_id RETURNING id INTO v_proc_id;
+    INSERT INTO rh_tarefas (processo_id, titulo, ordem, prazo_descricao, setor_id, entregavel) VALUES (v_proc_id, 'Executar Recálculo', 1, '2 dias', id_setor_dp, 'FGTS recalculado') ON CONFLICT (processo_id, titulo) DO UPDATE SET prazo_descricao = EXCLUDED.prazo_descricao RETURNING id INTO v_task_id;
+    INSERT INTO rh_tarefas_responsaveis (tarefa_id, funcionario_id) VALUES (v_task_id, id_lili) ON CONFLICT DO NOTHING;
 
     -- Recálculo INSS
-    INSERT INTO rh_processos (nome, frequencia, setor_id) VALUES ('Recálculo de INSS', 'Eventual', id_setor_dp) ON CONFLICT (nome) DO NOTHING RETURNING id INTO v_proc_id;
-    IF v_proc_id IS NOT NULL THEN
-        INSERT INTO rh_tarefas (processo_id, titulo, ordem, prazo_descricao, setor_id, entregavel) VALUES (v_proc_id, 'Executar Recálculo', 1, '2 dias', id_setor_dp, 'INSS recalculado') ON CONFLICT DO NOTHING RETURNING id INTO v_task_id;
-        INSERT INTO rh_tarefas_responsaveis (tarefa_id, funcionario_id) VALUES (v_task_id, id_lili) ON CONFLICT DO NOTHING;
-    END IF;
+    INSERT INTO rh_processos (nome, frequencia, setor_id) VALUES ('Recálculo de INSS', 'Eventual', id_setor_dp) ON CONFLICT (nome) DO UPDATE SET setor_id = EXCLUDED.setor_id RETURNING id INTO v_proc_id;
+    INSERT INTO rh_tarefas (processo_id, titulo, ordem, prazo_descricao, setor_id, entregavel) VALUES (v_proc_id, 'Executar Recálculo', 1, '2 dias', id_setor_dp, 'INSS recalculado') ON CONFLICT (processo_id, titulo) DO UPDATE SET prazo_descricao = EXCLUDED.prazo_descricao RETURNING id INTO v_task_id;
+    INSERT INTO rh_tarefas_responsaveis (tarefa_id, funcionario_id) VALUES (v_task_id, id_lili) ON CONFLICT DO NOTHING;
 
     -- Dissídio Coletivo
-    INSERT INTO rh_processos (nome, frequencia, setor_id) VALUES ('Dissídio Coletivo', 'Eventual', id_setor_dp) ON CONFLICT (nome) DO NOTHING RETURNING id INTO v_proc_id;
-    IF v_proc_id IS NOT NULL THEN
-        INSERT INTO rh_tarefas (processo_id, titulo, ordem, prazo_descricao, setor_id, entregavel) VALUES (v_proc_id, 'Processar Dissídio', 1, '30 dias', id_setor_dp, 'Dissídio processado') ON CONFLICT DO NOTHING RETURNING id INTO v_task_id;
-        INSERT INTO rh_tarefas_responsaveis (tarefa_id, funcionario_id) VALUES (v_task_id, id_lili) ON CONFLICT DO NOTHING;
-    END IF;
+    INSERT INTO rh_processos (nome, frequencia, setor_id) VALUES ('Dissídio Coletivo', 'Eventual', id_setor_dp) ON CONFLICT (nome) DO UPDATE SET setor_id = EXCLUDED.setor_id RETURNING id INTO v_proc_id;
+    INSERT INTO rh_tarefas (processo_id, titulo, ordem, prazo_descricao, setor_id, entregavel) VALUES (v_proc_id, 'Processar Dissídio', 1, '30 dias', id_setor_dp, 'Dissídio processado') ON CONFLICT (processo_id, titulo) DO UPDATE SET prazo_descricao = EXCLUDED.prazo_descricao RETURNING id INTO v_task_id;
+    INSERT INTO rh_tarefas_responsaveis (tarefa_id, funcionario_id) VALUES (v_task_id, id_lili) ON CONFLICT DO NOTHING;
 
-    -- 7. DEMAIS ROTINAS SIMPLES (Anuais)
     -- Adiantamento 13º
-    INSERT INTO rh_processos (nome, frequencia, setor_id) VALUES ('Adiantamento do 13º Salário', 'Anual', id_setor_dp) ON CONFLICT (nome) DO NOTHING RETURNING id INTO v_proc_id;
-    IF v_proc_id IS NOT NULL THEN
-        INSERT INTO rh_tarefas (processo_id, titulo, ordem, prazo_descricao, setor_id, entregavel) VALUES (v_proc_id, 'Processar Adiantamento', 1, '30/11', id_setor_dp, 'Adiantamento processado') ON CONFLICT DO NOTHING RETURNING id INTO v_task_id;
-        INSERT INTO rh_tarefas_responsaveis (tarefa_id, funcionario_id) VALUES (v_task_id, id_lili) ON CONFLICT DO NOTHING;
-    END IF;
+    INSERT INTO rh_processos (nome, frequencia, setor_id) VALUES ('Adiantamento do 13º Salário', 'Anual', id_setor_dp) ON CONFLICT (nome) DO UPDATE SET setor_id = EXCLUDED.setor_id RETURNING id INTO v_proc_id;
+    INSERT INTO rh_tarefas (processo_id, titulo, ordem, prazo_descricao, setor_id, entregavel) VALUES (v_proc_id, 'Processar Adiantamento', 1, '30/11', id_setor_dp, 'Adiantamento processado') ON CONFLICT (processo_id, titulo) DO UPDATE SET prazo_descricao = EXCLUDED.prazo_descricao RETURNING id INTO v_task_id;
+    INSERT INTO rh_tarefas_responsaveis (tarefa_id, funcionario_id) VALUES (v_task_id, id_lili) ON CONFLICT DO NOTHING;
 
     -- 13º Salário
-    INSERT INTO rh_processos (nome, frequencia, setor_id) VALUES ('13º Salário', 'Anual', id_setor_dp) ON CONFLICT (nome) DO NOTHING RETURNING id INTO v_proc_id;
-    IF v_proc_id IS NOT NULL THEN
-        INSERT INTO rh_tarefas (processo_id, titulo, ordem, prazo_descricao, setor_id, entregavel) VALUES (v_proc_id, 'Processar 13º', 1, '20/12', id_setor_dp, '13º salário processado') ON CONFLICT DO NOTHING RETURNING id INTO v_task_id;
-        INSERT INTO rh_tarefas_responsaveis (tarefa_id, funcionario_id) VALUES (v_task_id, id_lili) ON CONFLICT DO NOTHING;
-    END IF;
+    INSERT INTO rh_processos (nome, frequencia, setor_id) VALUES ('13º Salário', 'Anual', id_setor_dp) ON CONFLICT (nome) DO UPDATE SET setor_id = EXCLUDED.setor_id RETURNING id INTO v_proc_id;
+    INSERT INTO rh_tarefas (processo_id, titulo, ordem, prazo_descricao, setor_id, entregavel) VALUES (v_proc_id, 'Processar 13º', 1, '20/12', id_setor_dp, '13º salário processado') ON CONFLICT (processo_id, titulo) DO UPDATE SET prazo_descricao = EXCLUDED.prazo_descricao RETURNING id INTO v_task_id;
+    INSERT INTO rh_tarefas_responsaveis (tarefa_id, funcionario_id) VALUES (v_task_id, id_lili) ON CONFLICT DO NOTHING;
 
     -- Informe de Rendimentos
-    INSERT INTO rh_processos (nome, frequencia, setor_id) VALUES ('Informe de Rendimentos', 'Anual', id_setor_dp) ON CONFLICT (nome) DO NOTHING RETURNING id INTO v_proc_id;
-    IF v_proc_id IS NOT NULL THEN
-        INSERT INTO rh_tarefas (processo_id, titulo, ordem, prazo_descricao, setor_id, entregavel) VALUES (v_proc_id, 'Emitir Informe', 1, '28/02', id_setor_dp, 'Informe entregue') ON CONFLICT DO NOTHING RETURNING id INTO v_task_id;
-        INSERT INTO rh_tarefas_responsaveis (tarefa_id, funcionario_id) VALUES (v_task_id, id_lili) ON CONFLICT DO NOTHING;
-    END IF;
+    INSERT INTO rh_processos (nome, frequencia, setor_id) VALUES ('Informe de Rendimentos', 'Anual', id_setor_dp) ON CONFLICT (nome) DO UPDATE SET setor_id = EXCLUDED.setor_id RETURNING id INTO v_proc_id;
+    INSERT INTO rh_tarefas (processo_id, titulo, ordem, prazo_descricao, setor_id, entregavel) VALUES (v_proc_id, 'Emitir Informe', 1, '28/02', id_setor_dp, 'Informe entregue') ON CONFLICT (processo_id, titulo) DO UPDATE SET prazo_descricao = EXCLUDED.prazo_descricao RETURNING id INTO v_task_id;
+    INSERT INTO rh_tarefas_responsaveis (tarefa_id, funcionario_id) VALUES (v_task_id, id_lili) ON CONFLICT DO NOTHING;
 
     -- FAP
-    INSERT INTO rh_processos (nome, frequencia, setor_id) VALUES ('FAP (Fator Acidentário de Prevenção)', 'Anual', id_setor_dp) ON CONFLICT (nome) DO NOTHING RETURNING id INTO v_proc_id;
-    IF v_proc_id IS NOT NULL THEN
-        INSERT INTO rh_tarefas (processo_id, titulo, ordem, prazo_descricao, setor_id, entregavel) VALUES (v_proc_id, 'Controle/Entrega FAP', 1, '31/05', id_setor_dp, 'FAP atualizado') ON CONFLICT DO NOTHING RETURNING id INTO v_task_id;
-        INSERT INTO rh_tarefas_responsaveis (tarefa_id, funcionario_id) VALUES (v_task_id, id_lili) ON CONFLICT DO NOTHING;
-    END IF;
+    INSERT INTO rh_processos (nome, frequencia, setor_id) VALUES ('FAP (Fator Acidentário de Prevenção)', 'Anual', id_setor_dp) ON CONFLICT (nome) DO UPDATE SET setor_id = EXCLUDED.setor_id RETURNING id INTO v_proc_id;
+    INSERT INTO rh_tarefas (processo_id, titulo, ordem, prazo_descricao, setor_id, entregavel) VALUES (v_proc_id, 'Controle/Entrega FAP', 1, '31/05', id_setor_dp, 'FAP atualizado') ON CONFLICT (processo_id, titulo) DO UPDATE SET prazo_descricao = EXCLUDED.prazo_descricao RETURNING id INTO v_task_id;
+    INSERT INTO rh_tarefas_responsaveis (tarefa_id, funcionario_id) VALUES (v_task_id, id_lili) ON CONFLICT DO NOTHING;
 
     -- Renovação Exames
-    INSERT INTO rh_processos (nome, frequencia, setor_id) VALUES ('Renovação de Exames Periódicos (SST)', 'Anual', id_setor_dp) ON CONFLICT (nome) DO NOTHING RETURNING id INTO v_proc_id;
-    IF v_proc_id IS NOT NULL THEN
-        INSERT INTO rh_tarefas (processo_id, titulo, ordem, prazo_descricao, setor_id, entregavel) VALUES (v_proc_id, 'Renovar Exames', 1, '30/04', id_setor_dp, 'Exames renovados') ON CONFLICT DO NOTHING RETURNING id INTO v_task_id;
-        INSERT INTO rh_tarefas_responsaveis (tarefa_id, funcionario_id) VALUES (v_task_id, id_lili) ON CONFLICT DO NOTHING;
-    END IF;
+    INSERT INTO rh_processos (nome, frequencia, setor_id) VALUES ('Renovação de Exames Periódicos (SST)', 'Anual', id_setor_dp) ON CONFLICT (nome) DO UPDATE SET setor_id = EXCLUDED.setor_id RETURNING id INTO v_proc_id;
+    INSERT INTO rh_tarefas (processo_id, titulo, ordem, prazo_descricao, setor_id, entregavel) VALUES (v_proc_id, 'Renovar Exames', 1, '30/04', id_setor_dp, 'Exames renovados') ON CONFLICT (processo_id, titulo) DO UPDATE SET prazo_descricao = EXCLUDED.prazo_descricao RETURNING id INTO v_task_id;
+    INSERT INTO rh_tarefas_responsaveis (tarefa_id, funcionario_id) VALUES (v_task_id, id_lili) ON CONFLICT DO NOTHING;
 
 END $$;
