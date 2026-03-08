@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { GlassCard } from '../../components/ui/GlassCard/GlassCard';
 import { Button } from '../../components/ui/Button/Button';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Plus, PlayCircle, Edit, LayoutGrid, List, Trash2 } from 'lucide-react';
+import { FileText, Plus, PlayCircle, Edit, LayoutGrid, List, Trash2, Users } from 'lucide-react';
 import { api } from '../../services/api';
 import DataTable from '../../components/ui/DataTable/DataTable';
 import ProcessTemplateModal from '../../components/forms/ProcessTemplateModal';
@@ -60,11 +60,29 @@ export const ProcessManagement = () => {
             }
         }
     };
-    const columns = ['Nome', 'Frequência', 'Rotinas', 'Clientes Ativos', 'Ações'];
+    const columns = ['Nome', 'Frequência', 'Setores', 'Equipe', 'Rotinas', 'Clientes Ativos', 'Ações'];
 
     const dataRows = templates.map(t => [
         <div style={{ fontWeight: '600' }}>{t.nome}</div>,
-        t.frequencia || 'Mensal',
+        <span style={{ 
+            fontSize: '0.75rem', 
+            padding: '2px 8px', 
+            borderRadius: '4px', 
+            backgroundColor: 'rgba(255,255,255,0.1)',
+            color: 'var(--text-dark)'
+        }}>
+            {t.frequencia || 'Mensal'}
+        </span>,
+        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            {(t.setores || []).map(s => (
+                <span key={s} style={{ fontSize: '0.7rem', color: 'var(--primary-color)', backgroundColor: 'rgba(59, 130, 246, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                    {s}
+                </span>
+            ))}
+        </div>,
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {(t.responsaveis || []).join(', ') || '-'}
+        </div>,
         t.qtd_rotinas || 0,
         <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}>{t.qtd_clientes || 0}</span>,
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -131,8 +149,24 @@ export const ProcessManagement = () => {
             ) : viewMode === 'card' ? (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', marginTop: '24px' }}>
                     {templates.map(template => (
-                        <GlassCard key={template.id} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '24px' }}>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                        <GlassCard key={template.id} style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '24px', position: 'relative' }}>
+                            {/* Badge de Frequência */}
+                            <div style={{ 
+                                position: 'absolute', 
+                                top: '16px', 
+                                right: '16px', 
+                                fontSize: '0.7rem', 
+                                padding: '4px 10px', 
+                                borderRadius: '20px', 
+                                backgroundColor: template.frequencia === 'Anual' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(59, 130, 246, 0.1)',
+                                color: template.frequencia === 'Anual' ? '#f59e0b' : 'var(--primary-color)',
+                                fontWeight: 'bold',
+                                border: template.frequencia === 'Anual' ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(59, 130, 246, 0.2)'
+                            }}>
+                                {template.frequencia || 'Mensal'}
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', paddingRight: '60px' }}>
                                 <div style={{ padding: '12px', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: '8px', color: 'var(--primary-color)' }}>
                                     <FileText size={24} />
                                 </div>
@@ -140,6 +174,41 @@ export const ProcessManagement = () => {
                                     <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--text-dark)' }}>{template.nome}</h3>
                                     <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: '1.4' }}>{template.descricao}</p>
                                 </div>
+                            </div>
+
+                            {/* Setores e Responsáveis */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {(template.setores || []).length > 0 && (
+                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                        {template.setores.map(s => (
+                                            <span key={s} style={{ 
+                                                fontSize: '0.65rem', 
+                                                color: 'white', 
+                                                backgroundColor: 'rgba(255,255,255,0.05)', 
+                                                padding: '4px 10px', 
+                                                borderRadius: '6px',
+                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.5px'
+                                            }}>
+                                                {s}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                                
+                                {(template.responsaveis || []).length > 0 && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                            <Users size={14} />
+                                            <span>Equipe:</span>
+                                        </div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-dark)', fontWeight: '500' }}>
+                                            {template.responsaveis.slice(0, 3).join(', ')}
+                                            {template.responsaveis.length > 3 && ` +${template.responsaveis.length - 3}`}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div style={{ display: 'flex', gap: '12px' }}>

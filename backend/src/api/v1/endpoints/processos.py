@@ -135,18 +135,44 @@ async def excluir_processo(id: int):
 @router.get("")
 async def listar_processos():
     try:
-        # Puxa processos, suas tarefas e também os vínculos de clientes
-        res = supabase.table("rh_processos").select("*, rh_tarefas(id, is_active), rh_processos_clientes(processo_id)").execute()
+        # Puxa processos, suas tarefas (com setores e responsáveis) e também os vínculos de clientes
+        res = supabase.table("rh_processos").select(
+            "*, "
+            "rh_tarefas(id, is_active, role, rh_tarefas_responsaveis(funcionarios(nome))), "
+            "rh_processos_clientes(processo_id)"
+        ).execute()
+        
         data = res.data or []
         for p in data:
-            # Conta apenas as tarefas ativas e tira esse campo pra não poluir
-            tarefas_ativas = [t for t in p.get('rh_tarefas', []) if t.get('is_active') is not False]
+            tarefas = p.get('rh_tarefas', [])
+            tarefas_ativas = [t for t in tarefas if t.get('is_active') is not False]
+            
             p['qtd_rotinas'] = len(tarefas_ativas)
             p['qtd_clientes'] = len(p.get('rh_processos_clientes', []))
             p['frequencia'] = p.get('frequencia', 'Mensal')
+            
+            # Coleta setores únicos
+            setores = set()
+            for t in tarefas_ativas:
+                if t.get('role'):
+                    setores.add(t['role'])
+            p['setores'] = sorted(list(setores))
+            
+            # Coleta nomes de funcionários responsáveis únicos
+            responsaveis = set()
+            for t in tarefas_ativas:
+                for r in t.get('rh_tarefas_responsaveis', []):
+                    func = r.get('funcionarios', {})
+                    if func and func.get('nome'):
+                        responsaveis.add(func['nome'])
+            p['responsaveis'] = sorted(list(responsaveis))
+            
             # Removemos a lista crua de tarefas para o frontend
             if 'rh_tarefas' in p:
                 del p['rh_tarefas']
+            if 'rh_processos_clientes' in p:
+                del p['rh_processos_clientes']
+                
         return data
     except Exception as e:
         logger.error(f"Erro ao listar: {e}")
