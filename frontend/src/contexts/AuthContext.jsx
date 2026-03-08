@@ -59,20 +59,25 @@ export function AuthProvider({ children }) {
         try {
             // Envia username (mapeado de credentials.email) e password pro Backend FastAPI
             const response = await api.post('/auth/login', {
-                username: credentials.email || credentials.username,
+                username: (credentials.email || credentials.username || '').trim(),
                 password: credentials.password
             });
 
-            // O backend /login pode não retornar telas_permitidas na resposta imediata, 
-            // mas o /auth/me o faz. Vamos buscar as telas se não vierem no login.
-            const { user: authUser } = response.data;
-            setUser({ id: authUser.id, email: authUser.nome });
-            setProfile(authUser);
-            
-            // Tenta obter permissões se vierem no login, senão inicializa vazio (initAuth carregará no refresh ou na próxima chamada)
-            setPermissions(Array.isArray(authUser.telas_permitidas) ? authUser.telas_permitidas : []);
-            
-            return { data: authUser, error: null };
+            // IMPORTANTE: O login inicial às vezes não traz as permissões completas (RBAC).
+            // Para evitar o loop de redirecionamento, buscamos os detalhes do perfil
+            // IMEDIATAMENTE antes de setar o usuário no estado global.
+            const responseMe = await api.get('/auth/me');
+            const userData = responseMe.data;
+
+            if (userData) {
+                setUser({ id: userData.id, email: userData.nome });
+                setProfile(userData);
+                setPermissions(Array.isArray(userData.telas_permitidas) ? userData.telas_permitidas : []);
+                
+                return { data: userData, error: null };
+            }
+
+            return { data: null, error: { message: "Falha ao sincronizar perfil após login" } };
 
         } catch (error) {
             console.error("[Auth] Login error:", error);

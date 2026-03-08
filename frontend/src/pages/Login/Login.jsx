@@ -52,10 +52,7 @@ const Login = () => {
                 });
                 return;
             }
-
-            if (data?.user) {
-                console.log("Login auth efetuado, aguardando perfil para redirecionamento automático...");
-            }
+            // O redirecionamento será tratado pelo useEffect [user]
         } catch (err) {
             console.error("Falha inesperada no login:", err);
             setError("Erro interno do sistema. O servidor pode estar offline.");
