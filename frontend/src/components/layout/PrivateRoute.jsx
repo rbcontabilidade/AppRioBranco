@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { SYSTEM_SCREENS } from '../config/screens';
+import { useAuth } from '../../contexts/AuthContext';
+import { SYSTEM_SCREENS } from '../../config/screens';
 
 const PrivateRoute = ({ children }) => {
     const { user, loading, isAdmin, permissions } = useAuth();
@@ -9,8 +9,21 @@ const PrivateRoute = ({ children }) => {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-[#0f172a]">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '100vh',
+                background: '#0f172a'
+            }}>
+                <div style={{
+                    width: '48px',
+                    height: '48px',
+                    border: '2px solid #6366f1',
+                    borderTopColor: 'transparent',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite'
+                }}></div>
             </div>
         );
     }
