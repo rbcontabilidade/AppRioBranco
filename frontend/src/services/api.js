@@ -31,11 +31,6 @@ const apiInstance = axios.create({
  * Puxa o 'authToken' ou 'token' do localStorage e anexa como Bearer
  * toda vez que uma requisição vai sair para o Backend.
  */
-apiInstance.interceptors.request.use(
-    (error) => {
-        return Promise.reject(error);
-    }
-);
 
 /**
  * Interceptor de Resposta (Response Interceptor)

@@ -111,7 +111,6 @@ async def login(response: Response, form_data: LoginRequest):
         
         access_token = create_access_token(data=token_data)
         
-
         return {
              "message": "Login efetuado com sucesso",
              "user": {
