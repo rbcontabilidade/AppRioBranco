@@ -73,9 +73,11 @@ export const ProcessAssignment = () => {
         try {
             // Busca clientes que já possuem este processo vinculado
             const resAtribuidos = await api.get(`/processos/${template.id}/clientes-atribuidos`);
-            const atribuidos = resAtribuidos.data || [];
+            // Garante que os IDs sejam convertidos para número, evitando mismatch "1" !== 1 e typeof issues
+            const atribuidos = (resAtribuidos.data || []).map(id => Number(id));
             setAssignedClientIds(atribuidos);
             setSelectedClientIds(atribuidos); // Pré-seleciona os que já estão vinculados
+            console.log("✅ Clientes Atribuídos Carregados: ", atribuidos);
         } catch (error) {
             console.error("Erro ao buscar clientes já atribuídos:", error);
         }
@@ -83,14 +85,15 @@ export const ProcessAssignment = () => {
         setCurrentStep(2);
     };
 
-    const toggleClientSelection = (id) => {
+    const toggleClientSelection = (rawId) => {
+        const id = Number(rawId);
         setSelectedClientIds(prev =>
             prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
         );
     };
 
     const handleSelectAllFiltered = () => {
-        const filteredIds = filteredClients.map(c => c.id);
+        const filteredIds = filteredClients.map(c => Number(c.id));
         const allFilteredSelected = filteredIds.every(id => selectedClientIds.includes(id));
         
         if (allFilteredSelected) {
@@ -107,7 +110,7 @@ export const ProcessAssignment = () => {
         try {
             // Calcula quem adicionar e quem remover
             const toAdd = selectedClientIds;
-            const toRemove = assignedClientIds.filter(id => !selectedClientIds.includes(id));
+            const toRemove = assignedClientIds.filter(id => !selectedClientIds.includes(Number(id)));
 
             console.log("🚀 Iniciando atualização em lote:", {
                 templateId: selectedTemplate?.id,
@@ -283,7 +286,7 @@ export const ProcessAssignment = () => {
                                     type="checkbox"
                                     className="glass-checkbox"
                                     style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                                    checked={filteredClients.length > 0 && filteredClients.every(c => selectedClientIds.includes(c.id))}
+                                    checked={filteredClients.length > 0 && filteredClients.every(c => selectedClientIds.includes(Number(c.id)))}
                                     onChange={handleSelectAllFiltered}
                                 />
                             </th>
@@ -321,7 +324,7 @@ export const ProcessAssignment = () => {
                                     onClick={() => toggleClientSelection(client.id)}
                                     style={{
                                         cursor: 'pointer', borderTop: '1px solid var(--border-glass)',
-                                        background: selectedClientIds.includes(client.id) ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                                        background: selectedClientIds.includes(Number(client.id)) ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
                                         transition: 'all 0.2s',
                                         color: 'var(--text-main)'
                                     }}
@@ -333,7 +336,7 @@ export const ProcessAssignment = () => {
                                             readOnly
                                             className="glass-checkbox"
                                             style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                                            checked={selectedClientIds.includes(client.id)}
+                                            checked={selectedClientIds.includes(Number(client.id))}
                                         />
                                     </td>
                                     <td style={{ padding: '16px', fontWeight: '700', color: '#ffffff' }}>
