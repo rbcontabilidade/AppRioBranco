@@ -6,7 +6,7 @@ import { api } from '../../services/api';
 import { useDialog } from '../../contexts/DialogContext';
 import { useNavigate } from 'react-router-dom';
 import { AuditSettings } from './components/AuditSettings';
-import { RolesSettings } from './components/RolesSettings';
+import RolesSettings from './components/RolesSettings';
 
 /**
  * Aba: Sistema (Admin only)

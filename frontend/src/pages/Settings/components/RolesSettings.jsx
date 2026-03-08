@@ -32,9 +32,9 @@ import {
     createCargoNivel,
     updateCargoNivel,
     deleteCargoNivel
-} from '../../../../services/api';
-import { useDialog } from '../../../../contexts/DialogContext';
-import { SYSTEM_SCREENS } from '../../../../config/screens';
+} from '../../../services/api';
+import { useDialog } from '../../../contexts/DialogContext';
+import { SYSTEM_SCREENS } from '../../../config/screens';
 
 const RolesSettings = () => {
     // Estados principais
