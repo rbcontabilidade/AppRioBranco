@@ -8,17 +8,7 @@ import {
 } from 'lucide-react';
 import { useDialog } from '../../../contexts/DialogContext';
 import styles from './RolesSettings.module.css';
-
-const AVAILABLE_SCREENS = [
-    { id: 'dashboard', name: 'Dashboard' },
-    { id: 'import', name: 'Importação' },
-    { id: 'audit', name: 'Auditoria' },
-    { id: 'clients', name: 'Clientes' },
-    { id: 'tasks', name: 'Tarefas' },
-    { id: 'settings', name: 'Configurações' },
-    { id: 'reports', name: 'Relatórios' },
-    { id: 'rh', name: 'Recursos Humanos' }
-];
+import { SYSTEM_SCREENS } from '../../../config/screens';
 
 export const RolesSettings = () => {
     const [roles, setRoles] = useState([]);
@@ -86,8 +76,9 @@ export const RolesSettings = () => {
             const response = await api.get(`/cargos/${roleId}/niveis`);
             setLevels(prev => ({ ...prev, [roleId]: Array.isArray(response.data) ? response.data : [] }));
         } catch (error) {
-            console.error(`Error fetching levels for role ${roleId}:`, error);
-            showAlert('Falha na Comunicação', 'Não foi possível carregar os níveis deste cargo e eles não serão renderizados temporariamente.', 'error');
+            console.error(`[RolesSettings] Erro ao carregar níveis do cargo ${roleId}. (Recurso possivelmente indisponível - Tabela/Endpoint)`, error);
+            // Fallback gracioso para manter a UI estável
+            setLevels(prev => ({ ...prev, [roleId]: [] }));
         }
     };
 
@@ -107,7 +98,7 @@ export const RolesSettings = () => {
     const handleSaveRole = async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
-        const permissions = AVAILABLE_SCREENS.filter(s => formData.get(`perm_${s.id}`) === 'on').map(s => s.id);
+        const permissions = SYSTEM_SCREENS.filter(s => formData.get(`perm_${s.id}`) === 'on').map(s => s.id);
         
         const payload = {
             nome_cargo: formData.get('nome_cargo'),
@@ -240,7 +231,7 @@ export const RolesSettings = () => {
 
     const renderPermissionsPanel = (role) => (
         <div className={styles.permissionsGrid}>
-            {AVAILABLE_SCREENS.map(screen => {
+            {SYSTEM_SCREENS.map(screen => {
                 const isAllowed = role.telas_permitidas?.includes(screen.id);
                 return (
                     <div key={screen.id} className={`${styles.permissionCard} ${isAllowed ? styles.permissionCardActive : ''}`}>
@@ -439,7 +430,7 @@ export const RolesSettings = () => {
 
                             <h4 style={{ color: 'var(--text-light)', marginTop: '24px', marginBottom: '12px', fontSize: '1rem' }}>Concessão de Telas</h4>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                {AVAILABLE_SCREENS.map(screen => (
+                                {SYSTEM_SCREENS.map(screen => (
                                     <label key={screen.id} className={styles.formCheckbox}>
                                         <input 
                                             type="checkbox" 
