@@ -24,6 +24,7 @@ export const RolesSettings = () => {
     const [roles, setRoles] = useState([]);
     const [levels, setLevels] = useState({});
     const [loading, setLoading] = useState(true);
+    const [pageError, setPageError] = useState(null);
     const [expandedRole, setExpandedRole] = useState(null);
     const [activeTab, setActiveTab] = useState('permissions');
     const [searchQuery, setSearchQuery] = useState('');
@@ -41,13 +42,37 @@ export const RolesSettings = () => {
     const fetchRoles = async () => {
         try {
             setLoading(true);
-            const response = await api.get('/misc/cargos');
-            // Mock default status if it does not exist on older rows
-            const rolesData = (response.data || []).map(r => ({ ...r, status: r.status !== false }));
+            setPageError(null);
+            const response = await api.get('/cargos');
+            
+            // Garantir que trabalhamos com um Array
+            let rawData = Array.isArray(response.data) ? response.data : 
+                          (response.data?.data ? response.data.data : []);
+
+            const rolesData = rawData.map(r => {
+                let parsedTelas = [];
+                // Sanitização segura de telas_permitidas legadas e atuais
+                if (Array.isArray(r.telas_permitidas)) {
+                    parsedTelas = r.telas_permitidas;
+                } else if (typeof r.telas_permitidas === 'string') {
+                    try {
+                        parsedTelas = JSON.parse(r.telas_permitidas);
+                        if (!Array.isArray(parsedTelas)) parsedTelas = r.telas_permitidas ? [r.telas_permitidas] : [];
+                    } catch (e) {
+                         parsedTelas = r.telas_permitidas ? [r.telas_permitidas] : []; // Formato raw/desconhecido stringificado
+                    }
+                }
+
+                return { 
+                    ...r, 
+                    telas_permitidas: parsedTelas,
+                    status: r.status !== false 
+                };
+            });
             setRoles(rolesData);
         } catch (error) {
-            console.error('Error fetching roles:', error);
-            showAlert('Erro', 'Não foi possível carregar os cargos.', 'error');
+            console.error('Error fetching roles from backend:', error);
+            setPageError('Não foi possível carregar as informações de cargos e níveis do sistema. Por favor, tente recarregar a página.');
         } finally {
             setLoading(false);
         }
@@ -55,11 +80,11 @@ export const RolesSettings = () => {
 
     const fetchLevels = async (roleId) => {
         try {
-            const response = await api.get(`/misc/cargos/${roleId}/niveis`);
-            setLevels(prev => ({ ...prev, [roleId]: response.data || [] }));
+            const response = await api.get(`/cargos/${roleId}/niveis`);
+            setLevels(prev => ({ ...prev, [roleId]: Array.isArray(response.data) ? response.data : [] }));
         } catch (error) {
-            console.error('Error fetching levels:', error);
-            showAlert('Erro', 'Não foi possível carregar os níveis do cargo.', 'error');
+            console.error(`Error fetching levels for role ${roleId}:`, error);
+            showAlert('Falha na Comunicação', 'Não foi possível carregar os níveis deste cargo e eles não serão renderizados temporariamente.', 'error');
         }
     };
 
@@ -89,10 +114,10 @@ export const RolesSettings = () => {
 
         try {
             if (roleModal.data?.id) {
-                await api.put(`/misc/cargos/${roleModal.data.id}`, payload);
+                await api.put(`/cargos/${roleModal.data.id}`, payload);
                 showAlert('Sucesso', 'Cargo atualizado com sucesso.', 'success');
             } else {
-                await api.post('/misc/cargos', payload);
+                await api.post('/cargos', payload);
                 showAlert('Sucesso', 'Cargo criado com sucesso.', 'success');
             }
             setRoleModal({ isOpen: false, data: null });
@@ -115,7 +140,7 @@ export const RolesSettings = () => {
                 : 'Tem certeza que deseja excluir este cargo? Esta ação é irreversível.',
             async () => {
                 try {
-                    await api.delete(`/misc/cargos/${roleId}`);
+                    await api.delete(`/cargos/${roleId}`);
                     showAlert('Sucesso', 'Cargo excluído com sucesso.', 'success');
                     fetchRoles();
                     if (expandedRole === roleId) setExpandedRole(null);
@@ -142,10 +167,10 @@ export const RolesSettings = () => {
 
         try {
             if (levelModal.data?.id) {
-                await api.put(`/misc/cargos/${roleId}/niveis/${levelModal.data.id}`, payload);
+                await api.put(`/cargos/${roleId}/niveis/${levelModal.data.id}`, payload);
                 showAlert('Sucesso', 'Nível atualizado.', 'success');
             } else {
-                await api.post(`/misc/cargos/${roleId}/niveis`, payload);
+                await api.post(`/cargos/${roleId}/niveis`, payload);
                 showAlert('Sucesso', 'Nível adicionado.', 'success');
             }
             setLevelModal({ isOpen: false, roleId: null, data: null });
@@ -162,7 +187,7 @@ export const RolesSettings = () => {
             'Confirma a exclusão deste nível hierárquico?',
             async () => {
                 try {
-                    await api.delete(`/misc/cargos/${roleId}/niveis/${levelId}`);
+                    await api.delete(`/cargos/${roleId}/niveis/${levelId}`);
                     showAlert('Sucesso', 'Nível excluído.', 'success');
                     fetchLevels(roleId);
                 } catch (error) {
@@ -188,9 +213,9 @@ export const RolesSettings = () => {
         try {
             // Need to update both to swap orders to prevent unique constraint if active.
             // Safe approach: set to negative temp, update target, update source
-            await api.put(`/misc/cargos/${roleId}/niveis/${level.id}`, { ordem: -999 });
-            await api.put(`/misc/cargos/${roleId}/niveis/${targetLevel.id}`, { ordem: oldOrder });
-            await api.put(`/misc/cargos/${roleId}/niveis/${level.id}`, { ordem: newOrder });
+            await api.put(`/cargos/${roleId}/niveis/${level.id}`, { ordem: -999 });
+            await api.put(`/cargos/${roleId}/niveis/${targetLevel.id}`, { ordem: oldOrder });
+            await api.put(`/cargos/${roleId}/niveis/${level.id}`, { ordem: newOrder });
             fetchLevels(roleId);
         } catch (error) {
             console.error('Swap error', error);
@@ -313,7 +338,14 @@ export const RolesSettings = () => {
                 </div>
             </div>
 
-            {loading ? (
+            {pageError ? (
+                <div className={styles.emptyState} style={{ borderColor: 'rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.05)' }}>
+                    <Shield size={48} className={styles.emptyIcon} style={{ color: '#f87171' }} />
+                    <h4 className={styles.emptyTitle} style={{ color: '#f87171' }}>Falha na Comunicação</h4>
+                    <p className={styles.emptyText}>{pageError}</p>
+                    <Button style={{ marginTop: 16 }} onClick={fetchRoles}>Tentar Novamente</Button>
+                </div>
+            ) : loading ? (
                 <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Mapeando sistema de cargos...</div>
             ) : (
                 <div className={styles.rolesList}>
