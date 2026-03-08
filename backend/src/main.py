@@ -73,6 +73,11 @@ app.include_router(misc.router)
 
 # --- ENDPOINTS DE DIAGNÓSTICO E SISTEMA ---
 
+@app.get("/")
+def healthcheck():
+    """Healthcheck exigido pelo Hugging Face para confirmar que o container iniciou."""
+    return {"status": "ok", "message": "FiscalApp API Online"}
+
 @app.get("/api/status")
 def read_root():
     if supabase is None:
