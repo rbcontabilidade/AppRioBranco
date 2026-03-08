@@ -52,23 +52,26 @@ export const RolesSettings = () => {
             const rolesData = rawData.map(r => {
                 let parsedTelas = [];
                 // Sanitização segura de telas_permitidas legadas e atuais
-                if (Array.isArray(r.telas_permitidas)) {
-                    parsedTelas = r.telas_permitidas;
-                } else if (typeof r.telas_permitidas === 'string') {
-                    try {
-                        parsedTelas = JSON.parse(r.telas_permitidas);
-                        if (!Array.isArray(parsedTelas)) parsedTelas = r.telas_permitidas ? [r.telas_permitidas] : [];
-                    } catch (e) {
-                         parsedTelas = r.telas_permitidas ? [r.telas_permitidas] : []; // Formato raw/desconhecido stringificado
+                if (r?.telas_permitidas) {
+                    if (Array.isArray(r.telas_permitidas)) {
+                        parsedTelas = r.telas_permitidas;
+                    } else if (typeof r.telas_permitidas === 'string') {
+                        try {
+                            parsedTelas = JSON.parse(r.telas_permitidas);
+                            if (!Array.isArray(parsedTelas)) parsedTelas = [r.telas_permitidas];
+                        } catch (e) {
+                             parsedTelas = [r.telas_permitidas]; // Formato raw/desconhecido stringificado
+                        }
                     }
                 }
 
                 return { 
                     ...r, 
+                    nome_cargo: r?.nome_cargo || 'Cargo Sem Nome',
                     telas_permitidas: parsedTelas,
-                    status: r.status !== false 
+                    status: (r?.status !== false && r?.status !== 'false' && r?.status !== 0) // Consider active unless explicitly inactive
                 };
-            });
+            }).filter(Boolean);
             setRoles(rolesData);
         } catch (error) {
             console.error('Error fetching roles from backend:', error);
@@ -226,7 +229,9 @@ export const RolesSettings = () => {
 
     // --- Renders ---
     const filteredRoles = roles.filter(role => {
-        const matchesSearch = role.nome_cargo.toLowerCase().includes(searchQuery.toLowerCase());
+        const roleName = (role.nome_cargo || '').toLowerCase();
+        const search = (searchQuery || '').toLowerCase();
+        const matchesSearch = roleName.includes(search);
         const matchesStatus = statusFilter === 'ALL' || 
                              (statusFilter === 'ACTIVE' && role.status) || 
                              (statusFilter === 'INACTIVE' && !role.status);
