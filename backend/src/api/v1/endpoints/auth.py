@@ -111,15 +111,6 @@ async def login(response: Response, form_data: LoginRequest):
         
         access_token = create_access_token(data=token_data)
         
-        # Cookies Seguro - Autenticação Persistente
-        response.set_cookie(
-            key="access_token",
-            value=f"Bearer {access_token}",
-            httponly=True,
-            secure=True,
-            samesite="none",
-            max_age=86400
-        )
 
         return {
              "message": "Login efetuado com sucesso",

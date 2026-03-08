@@ -32,17 +32,6 @@ const apiInstance = axios.create({
  * toda vez que uma requisição vai sair para o Backend.
  */
 apiInstance.interceptors.request.use(
-    async (config) => {
-        // Obter token do localStorage como fallback (O HttpOnly via Cookie principal não precisa ser injetado no Header via JS)
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-            console.log(`🚀 [API Request] ENVIANDO TOKEN DO STORAGE - URL: ${config.url}`);
-        }
-
-        return config;
-    },
     (error) => {
         return Promise.reject(error);
     }
