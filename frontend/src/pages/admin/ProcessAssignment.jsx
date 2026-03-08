@@ -73,11 +73,11 @@ export const ProcessAssignment = () => {
         try {
             // Busca clientes que já possuem este processo vinculado
             const resAtribuidos = await api.get(`/processos/${template.id}/clientes-atribuidos`);
-            // Garante que os IDs sejam convertidos para número, evitando mismatch "1" !== 1 e typeof issues
+            // Garante que os IDs sejam convertidos para número e padronizados
             const atribuidos = (resAtribuidos.data || []).map(id => Number(id));
             setAssignedClientIds(atribuidos);
-            setSelectedClientIds(atribuidos); // Pré-seleciona os que já estão vinculados
-            console.log("✅ Clientes Atribuídos Carregados: ", atribuidos);
+            setSelectedClientIds([...atribuidos]); // Clone para evitar mutação direta
+            console.log("✅ Clientes Atribuídos Carregados (Padronizados): ", atribuidos);
         } catch (error) {
             console.error("Erro ao buscar clientes já atribuídos:", error);
         }
@@ -93,7 +93,7 @@ export const ProcessAssignment = () => {
     };
 
     const handleSelectAllFiltered = () => {
-        const filteredIds = filteredClients.map(c => Number(c.id));
+        const filteredIds = filteredClients.map(c => Number(c.id || c.id_interno));
         const allFilteredSelected = filteredIds.every(id => selectedClientIds.includes(id));
         
         if (allFilteredSelected) {
@@ -108,9 +108,11 @@ export const ProcessAssignment = () => {
     const handleStartProcess = async () => {
         setIsSubmitting(true);
         try {
-            // Calcula quem adicionar e quem remover
-            const toAdd = selectedClientIds;
-            const toRemove = assignedClientIds.filter(id => !selectedClientIds.includes(Number(id)));
+            // Calcula quem realmente deve ser ADICIONADO (está na seleção mas não estava no banco)
+            const toAdd = selectedClientIds.filter(id => !assignedClientIds.includes(id));
+            
+            // Calcula quem realmente deve ser REMOVIDO (estava no banco mas não está mais na seleção)
+            const toRemove = assignedClientIds.filter(id => !selectedClientIds.includes(id));
 
             console.log("🚀 Iniciando atualização em lote:", {
                 templateId: selectedTemplate?.id,
@@ -320,11 +322,11 @@ export const ProcessAssignment = () => {
                             console.log("🔍 Renderizando Clientes:", filteredClients),
                             filteredClients.map(client => (
                                 <tr
-                                    key={client.id}
-                                    onClick={() => toggleClientSelection(client.id)}
+                                    key={client.id || client.id_interno}
+                                    onClick={() => toggleClientSelection(client.id || client.id_interno)}
                                     style={{
                                         cursor: 'pointer', borderTop: '1px solid var(--border-glass)',
-                                        background: selectedClientIds.includes(Number(client.id)) ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                                        background: selectedClientIds.includes(Number(client.id || client.id_interno)) ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
                                         transition: 'all 0.2s',
                                         color: 'var(--text-main)'
                                     }}
@@ -336,7 +338,7 @@ export const ProcessAssignment = () => {
                                             readOnly
                                             className="glass-checkbox"
                                             style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                                            checked={selectedClientIds.includes(Number(client.id))}
+                                            checked={selectedClientIds.includes(Number(client.id || client.id_interno))}
                                         />
                                     </td>
                                     <td style={{ padding: '16px', fontWeight: '700', color: '#ffffff' }}>
