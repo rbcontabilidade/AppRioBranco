@@ -62,10 +62,7 @@ export const ProcessAssignment = () => {
             (c.cnpj || '').includes(searchTerm);
         const matchRegime = selectedRegime ? c.regime === selectedRegime : true;
         
-        // NOVO: Filtro para excluir quem já está vinculado ao processo
-        const isNotAssigned = !assignedClientIds.includes(c.id);
-        
-        return matchName && matchRegime && isNotAssigned;
+        return matchName && matchRegime;
     });
 
     const handleSelectTemplate = async (template) => {
@@ -76,7 +73,9 @@ export const ProcessAssignment = () => {
         try {
             // Busca clientes que já possuem este processo vinculado
             const resAtribuidos = await api.get(`/processos/${template.id}/clientes-atribuidos`);
-            setAssignedClientIds(resAtribuidos.data || []);
+            const atribuidos = resAtribuidos.data || [];
+            setAssignedClientIds(atribuidos);
+            setSelectedClientIds(atribuidos); // Pré-seleciona os que já estão vinculados
         } catch (error) {
             console.error("Erro ao buscar clientes já atribuídos:", error);
         }
@@ -91,37 +90,63 @@ export const ProcessAssignment = () => {
     };
 
     const handleSelectAllFiltered = () => {
-        if (selectedClientIds.length === filteredClients.length) {
-            setSelectedClientIds([]);
+        const filteredIds = filteredClients.map(c => c.id);
+        const allFilteredSelected = filteredIds.every(id => selectedClientIds.includes(id));
+        
+        if (allFilteredSelected) {
+            // Desmarca todos os que estão no filtro atual
+            setSelectedClientIds(prev => prev.filter(id => !filteredIds.includes(id)));
         } else {
-            setSelectedClientIds(filteredClients.map(c => c.id));
+            // Marca todos os que estão no filtro atual
+            setSelectedClientIds(prev => Array.from(new Set([...prev, ...filteredIds])));
         }
     };
 
     const handleStartProcess = async () => {
         setIsSubmitting(true);
         try {
-            console.log("🚀 Iniciando lançamento em lote:", {
+            // Calcula quem adicionar e quem remover
+            const toAdd = selectedClientIds;
+            const toRemove = assignedClientIds.filter(id => !selectedClientIds.includes(id));
+
+            console.log("🚀 Iniciando atualização em lote:", {
                 templateId: selectedTemplate?.id,
-                clientIds: selectedClientIds
+                adicionar: toAdd.length,
+                remover: toRemove.length
             });
 
-            const promessas = selectedClientIds.map(clientId => {
+            const promessas = [];
+
+            toAdd.forEach(clientId => {
                 const url = `/processos/clientes/${clientId}/${selectedTemplate.id}`;
                 console.log(`📤 Enviando POST para: ${url}`);
-                return api.post(url);
+                promessas.push(api.post(url));
             });
+
+            toRemove.forEach(clientId => {
+                const url = `/processos/clientes/${clientId}/${selectedTemplate.id}`;
+                console.log(`🗑️ Enviando DELETE para: ${url}`);
+                promessas.push(api.delete(url));
+            });
+
             await Promise.all(promessas);
 
+            let message = `${toAdd.length} clientes vinculados`;
+            if (toRemove.length > 0) {
+                message += ` e ${toRemove.length} removidos`;
+            }
+            message += ` no processo '${selectedTemplate.nome}' com sucesso.`;
+
             await showAlert({
-                title: 'Lançamento Concluído!',
-                message: `${selectedClientIds.length} clientes vinculados ao processo '${selectedTemplate.nome}' com sucesso.`,
+                title: 'Atualização Concluída!',
+                message,
                 variant: 'success'
             });
 
             // Reset
             setSelectedTemplate(null);
             setSelectedClientIds([]);
+            setAssignedClientIds([]);
             setCurrentStep(1);
         } catch (error) {
             const errorMsg = error.response?.data?.detail || error.message;
@@ -132,8 +157,8 @@ export const ProcessAssignment = () => {
                 data: error.response?.data
             });
             showAlert({
-                title: 'Erro no Lançamento',
-                message: `Falha ao chamar ${fullUrl}: ${errorMsg}`,
+                title: 'Erro na Atualização',
+                message: `Houve um erro: ${errorMsg}`,
                 variant: 'danger'
             });
         } finally {
@@ -258,7 +283,7 @@ export const ProcessAssignment = () => {
                                     type="checkbox"
                                     className="glass-checkbox"
                                     style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                                    checked={filteredClients.length > 0 && selectedClientIds.length === filteredClients.length}
+                                    checked={filteredClients.length > 0 && filteredClients.every(c => selectedClientIds.includes(c.id))}
                                     onChange={handleSelectAllFiltered}
                                 />
                             </th>
@@ -271,14 +296,14 @@ export const ProcessAssignment = () => {
                         {filteredClients.length === 0 ? (
                             <tr>
                                 <td colSpan="4" style={{ padding: '40px', textAlign: 'center' }}>
-                                    {assignedClientIds.length > 0 && clients.length > 0 && filteredClients.length === 0 ? (
+                                    {assignedClientIds.length === clients.length && clients.length > 0 && filteredClients.length === 0 ? (
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                                             <div style={{ p: '12px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '50%', color: '#10b981' }}>
                                                 <CheckCircle size={32} />
                                             </div>
                                             <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#ffffff' }}>Tudo pronto!</div>
                                             <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                                                Todos os clientes elegíveis já estão vinculados a este processo.
+                                                Todos os clientes já estão vinculados a este processo.
                                             </div>
                                         </div>
                                     ) : (
