@@ -1,27 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     LayoutDashboard,
-    Users,
-    Settings,
-    LogOut,
     ChevronRight,
     Palette,
     Key,
-    Menu,
-    MoreVertical,
-    Workflow,
-    Activity,
-    Target,
-    Calendar
+    LogOut,
+    MoreVertical
 } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
-import { supabase } from '../../../services/supabase';
+import { SYSTEM_SCREENS } from '../../../config/screens';
 import styles from './Sidebar.module.css';
 
 const Sidebar = ({ isCollapsed }) => {
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-    const { profile, signOut, isAdmin } = useAuth();
+    const { profile, signOut, isAdmin, permissions } = useAuth();
     const navigate = useNavigate();
     const menuRef = useRef(null);
 
@@ -38,11 +31,23 @@ const Sidebar = ({ isCollapsed }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Faz logout do AuthContext e redireciona para /login
     const handleLogout = async () => {
         await signOut();
         navigate('/login', { replace: true });
     };
+
+    // Filtra as telas que o usuário pode ver
+    const allowedScreens = SYSTEM_SCREENS.filter(screen => {
+        // Se for admin, vê tudo que não for marcado estritamente como não-admin (opcional)
+        // No nosso caso, admin vê tudo.
+        if (isAdmin) return true;
+        
+        // Se a tela for marcada como adminOnly e o usuário não for admin, bloqueia
+        if (screen.adminOnly && !isAdmin) return false;
+
+        // Verifica se o ID da tela está na lista de telas permitidas do cargo
+        return permissions.includes(screen.id);
+    });
 
     return (
         <aside className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ''} glass-panel`}>
@@ -56,72 +61,22 @@ const Sidebar = ({ isCollapsed }) => {
                 )}
             </div>
 
-            {/* Navegação Principal */}
+            {/* Navegação Principal Dinâmica */}
             <nav className={styles.navMenu}>
-                <NavLink
-                    to="/"
-                    className={({ isActive }) => `${styles.navItem} ${isActive ? styles.active : ''}`}
-                    end
-                >
-                    <LayoutDashboard size={20} className={styles.navIcon} />
-                    {!isCollapsed && <span>Dashboard</span>}
-                </NavLink>
-
-                <NavLink
-                    to="/clients"
-                    className={({ isActive }) => `${styles.navItem} ${isActive ? styles.active : ''}`}
-                >
-                    <Users size={20} className={styles.navIcon} />
-                    {!isCollapsed && <span>Clientes</span>}
-                </NavLink>
-
-                <NavLink
-                    to="/performance/me"
-                    className={({ isActive }) => `${styles.navItem} ${isActive ? styles.active : ''}`}
-                >
-                    <Target size={20} className={styles.navIcon} />
-                    {!isCollapsed && <span>Meu Desempenho</span>}
-                </NavLink>
-
-                {/* Exclusivas para Admin/Gerente (RBAC) */}
-                {isAdmin && (
-                    <>
-                        <NavLink
-                            to="/processes"
-                            className={({ isActive }) => `${styles.navItem} ${isActive ? styles.active : ''}`}
-                        >
-                            <Workflow size={20} className={styles.navIcon} />
-                            {!isCollapsed && <span>Gestão de Processos</span>}
-                        </NavLink>
-
-                        <NavLink
-                            to="/admin/competences"
-                            className={({ isActive }) => `${styles.navItem} ${isActive ? styles.active : ''}`}
-                        >
-                            <Calendar size={20} className={styles.navIcon} />
-                            {!isCollapsed && <span>Gestão de Competências</span>}
-                        </NavLink>
-
-                        <NavLink
-                            to="/admin/executive"
-                            className={({ isActive }) => `${styles.navItem} ${isActive ? styles.active : ''}`}
-                        >
-                            <Activity size={20} className={styles.navIcon} />
-                            {!isCollapsed && <span>Painel Executivo</span>}
-                        </NavLink>
-                    </>
-                )}
-
-                <NavLink
-                    to="/settings"
-                    className={({ isActive }) => `${styles.navItem} ${isActive ? styles.active : ''}`}
-                >
-                    <Settings size={20} className={styles.navIcon} />
-                    {!isCollapsed && <span>Configurações</span>}
-                </NavLink>
+                {allowedScreens.map(screen => (
+                    <NavLink
+                        key={screen.id}
+                        to={screen.path || '/'}
+                        className={({ isActive }) => `${styles.navItem} ${isActive ? styles.active : ''}`}
+                        end={screen.path === '/'}
+                    >
+                        {React.createElement(screen.icon, { size: 20, className: styles.navIcon })}
+                        {!isCollapsed && <span>{screen.name}</span>}
+                    </NavLink>
+                ))}
             </nav>
 
-            {/* Dropdown do Usuario (Overlay absoluto) */}
+            {/* Dropdown do Usuario */}
             {isUserMenuOpen && (
                 <div className={styles.userDropdown} ref={menuRef}>
                     <div className={styles.uacHeader}>
@@ -139,15 +94,15 @@ const Sidebar = ({ isCollapsed }) => {
                         className={styles.uacItem}
                         onClick={() => {
                             setIsUserMenuOpen(false);
-                            navigate('/settings');
+                            navigate('/settings/profile');
                         }}
                     >
                         <div className={`${styles.uacItemIcon} ${styles.iconPurple}`}>
                             <Palette size={16} />
                         </div>
                         <div className={styles.uacItemText}>
-                            <span className={styles.uacItemLabel}>Personalização</span>
-                            <span className={styles.uacItemDesc}>Tema, cores e menu</span>
+                            <span className={styles.uacItemLabel}>Meu Perfil</span>
+                            <span className={styles.uacItemDesc}>Dados e Avatar</span>
                         </div>
                         <ChevronRight size={14} className={styles.uacItemArrow} />
                     </button>
@@ -156,22 +111,21 @@ const Sidebar = ({ isCollapsed }) => {
                         className={styles.uacItem}
                         onClick={() => {
                             setIsUserMenuOpen(false);
-                            navigate('/settings');
+                            navigate('/settings/profile'); // Ou rota específica de senha se houver
                         }}
                     >
                         <div className={`${styles.uacItemIcon} ${styles.iconOrange}`}>
                             <Key size={16} />
                         </div>
                         <div className={styles.uacItemText}>
-                            <span className={styles.uacItemLabel}>Alterar Senha</span>
-                            <span className={styles.uacItemDesc}>Segurança da conta</span>
+                            <span className={styles.uacItemLabel}>Segurança</span>
+                            <span className={styles.uacItemDesc}>Alterar Senha</span>
                         </div>
                         <ChevronRight size={14} className={styles.uacItemArrow} />
                     </button>
 
                     <div className={styles.uacDivider} />
 
-                    {/* Botao de Logout conectado ao handleLogout */}
                     <button
                         className={`${styles.uacItem} ${styles.uacItemLogout}`}
                         onClick={handleLogout}
@@ -181,20 +135,20 @@ const Sidebar = ({ isCollapsed }) => {
                         </div>
                         <div className={styles.uacItemText}>
                             <span className={styles.uacItemLabel}>Sair do Sistema</span>
-                            <span className={styles.uacItemDesc}>Encerrar sessao atual</span>
+                            <span className={styles.uacItemDesc}>Encerrar sessao</span>
                         </div>
                     </button>
                 </div>
             )}
 
-            {/* Gatilho (Trigger) do Perfil do Usuário */}
+            {/* Gatilho do Perfil */}
             <div
                 className={styles.userProfile}
                 onClick={toggleUserMenu}
                 title="Configurações da Conta"
             >
                 <img
-                    src={`https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.nome || 'User')}&background=6366f1&color=fff`}
+                    src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.nome || 'User')}&background=6366f1&color=fff`}
                     alt="Avatar"
                     className={styles.avatar}
                 />

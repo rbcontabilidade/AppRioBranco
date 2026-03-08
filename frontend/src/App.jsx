@@ -64,30 +64,35 @@ const App = () => {
                     {/* Rotas Públicas */}
                     <Route path="/login" element={<Login />} />
 
-                    {/* Rotas Privadas (Protegidas pelo AuthContext) */}
-                    <Route element={<PrivateRoute />}>
-                        <Route element={<Layout />}>
-                            <Route path="/" element={<Dashboard />} />
-                            <Route path="/clients" element={<Clients />} />
-                            <Route path="/performance/me" element={<MyPerformance />} />
+                    {/* Rotas Privadas (Protegidas) */}
+                    <Route
+                        path="/"
+                        element={
+                            <PrivateRoute>
+                                <Layout />
+                            </PrivateRoute>
+                        }
+                    >
+                        <Route index element={<Dashboard />} />
+                        <Route path="clients" element={<Clients />} />
+                        <Route path="performance/me" element={<MyPerformance />} />
 
-                            {/* Módulo de Configurações com layout aninhado */}
-                            <Route path="/settings" element={<SettingsLayout />}>
-                                <Route index element={<Navigate to="/settings/profile" replace />} />
-                                <Route path="profile" element={<MyProfile />} />
-                                <Route path="funcionarios" element={<EmployeesSettings />} />
-                                <Route path="setores" element={<SectorsSettings />} />
-                                <Route path="sistema" element={<SistemaSettings />} />
-                            </Route>
-
-                            {/* Páginas do Painel Admin */}
-                            <Route path="/processes" element={<ProcessManagement />} />
-                            <Route path="/admin/process-builder" element={<ProcessBuilder />} />
-                            <Route path="/admin/process-assignment" element={<ProcessAssignment />} />
-                            <Route path="/admin/competences" element={<Competences />} />
-                            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-                            <Route path="/admin/executive" element={<ExecutiveDashboard />} />
+                        {/* Módulo de Configurações com layout aninhado */}
+                        <Route path="settings" element={<SettingsLayout />}>
+                            <Route index element={<Navigate to="/settings/profile" replace />} />
+                            <Route path="profile" element={<MyProfile />} />
+                            <Route path="funcionarios" element={<EmployeesSettings />} />
+                            <Route path="setores" element={<SectorsSettings />} />
+                            <Route path="sistema" element={<SistemaSettings />} />
                         </Route>
+
+                        {/* Páginas do Painel Admin */}
+                        <Route path="processes" element={<ProcessManagement />} />
+                        <Route path="admin/process-builder" element={<ProcessBuilder />} />
+                        <Route path="admin/process-assignment" element={<ProcessAssignment />} />
+                        <Route path="admin/competences" element={<Competences />} />
+                        <Route path="admin/dashboard" element={<AdminDashboard />} />
+                        <Route path="admin/executive" element={<ExecutiveDashboard />} />
                     </Route>
 
                     {/* Catch-all: Redireciona qualquer rota inexistente para a Dashboard */}

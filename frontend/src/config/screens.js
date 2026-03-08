@@ -11,7 +11,7 @@ import {
 export const SYSTEM_SCREENS = [
     { 
         id: 'dashboard', 
-        name: 'Manager Dashboard', 
+        name: 'Dashboard', 
         path: '/', 
         icon: LayoutDashboard,
         adminOnly: false 
@@ -24,28 +24,28 @@ export const SYSTEM_SCREENS = [
         adminOnly: false 
     },
     { 
-        id: 'performance/me', 
+        id: 'meu-desempenho', 
         name: 'Meu Desempenho', 
         path: '/performance/me', 
         icon: Target,
         adminOnly: false 
     },
     { 
-        id: 'processes', 
+        id: 'operacional', 
         name: 'Gestão de Processos', 
         path: '/processes', 
         icon: Workflow, 
         adminOnly: true 
     },
     { 
-        id: 'admin/competences', 
+        id: 'competencias', 
         name: 'Gestão de Competências', 
         path: '/admin/competences', 
         icon: Calendar, 
         adminOnly: true 
     },
     { 
-        id: 'admin/executive', 
+        id: 'executive', 
         name: 'Painel Executivo', 
         path: '/admin/executive', 
         icon: Activity, 

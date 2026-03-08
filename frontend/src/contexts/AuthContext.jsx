@@ -6,6 +6,7 @@ const AuthContext = createContext({});
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [profile, setProfile] = useState(null);
+    const [permissions, setPermissions] = useState([]); // Array de IDs de telas permitidas
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -28,12 +29,14 @@ export function AuthProvider({ children }) {
                     const userData = response.data;
                     setUser({ id: userData.id, email: userData.nome }); // Mantendo map para compatibilidade retroativa
                     setProfile(userData);
+                    setPermissions(Array.isArray(userData.telas_permitidas) ? userData.telas_permitidas : []);
                 }
             } catch (err) {
                 console.warn("[Auth] Sessão ausente na inicialização:", err?.message || err);
                 if (mounted) {
                     setUser(null);
                     setProfile(null);
+                    setPermissions([]);
                 }
             } finally {
                 // Encerra loading local
@@ -60,9 +63,15 @@ export function AuthProvider({ children }) {
                 password: credentials.password
             });
 
+            // O backend /login pode não retornar telas_permitidas na resposta imediata, 
+            // mas o /auth/me o faz. Vamos buscar as telas se não vierem no login.
             const { user: authUser } = response.data;
             setUser({ id: authUser.id, email: authUser.nome });
             setProfile(authUser);
+            
+            // Tenta obter permissões se vierem no login, senão inicializa vazio (initAuth carregará no refresh ou na próxima chamada)
+            setPermissions(Array.isArray(authUser.telas_permitidas) ? authUser.telas_permitidas : []);
+            
             return { data: authUser, error: null };
 
         } catch (error) {
@@ -80,6 +89,7 @@ export function AuthProvider({ children }) {
         } finally {
             setUser(null);
             setProfile(null);
+            setPermissions([]);
         }
     };
 
@@ -92,6 +102,7 @@ export function AuthProvider({ children }) {
     const contextValue = {
         user,
         profile,
+        permissions, // Exportando as permissões
         loading,
         signIn,
         signOut,
