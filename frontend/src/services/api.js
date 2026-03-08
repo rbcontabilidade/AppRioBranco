@@ -295,4 +295,40 @@ export const processService = {
     }
 };
 
+// --- SERVIÇOS DE CARGOS E PERMISSÕES ---
+export const getCargos = async () => {
+    const response = await apiInstance.get('/cargos_permissoes');
+    return response.data;
+};
+
+export const createCargo = async (data) => {
+    return apiInstance.post('/cargos_permissoes', data);
+};
+
+export const updateCargo = async (id, data) => {
+    return apiInstance.put(`/cargos_permissoes/${id}`, data);
+};
+
+export const deleteCargo = async (id) => {
+    return apiInstance.delete(`/cargos_permissoes/${id}`);
+};
+
+// --- SERVIÇOS DE NÍVEIS (HIERARQUIA) ---
+export const getCargoNiveis = async (cargoId) => {
+    const response = await apiInstance.get(`/cargos_permissoes/${cargoId}/niveis`);
+    return response.data;
+};
+
+export const createCargoNivel = async (data) => {
+    return apiInstance.post('/cargo_niveis', data);
+};
+
+export const updateCargoNivel = async (id, data) => {
+    return apiInstance.put(`/cargo_niveis/${id}`, data);
+};
+
+export const deleteCargoNivel = async (id) => {
+    return apiInstance.delete(`/cargo_niveis/${id}`);
+};
+
 export default api;

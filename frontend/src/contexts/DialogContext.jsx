@@ -14,6 +14,12 @@ export const DialogProvider = ({ children }) => {
         resolve: null
     });
 
+    const [toast, setToast] = useState({
+        isOpen: false,
+        message: '',
+        variant: 'success' // 'success' | 'error' | 'warning' | 'info'
+    });
+
     const showAlert = useCallback((options) => {
         const { title, message, confirmText = 'Entendido', variant = 'primary' } =
             typeof options === 'string' ? { title: 'Alerta', message: options } : options;
@@ -52,6 +58,13 @@ export const DialogProvider = ({ children }) => {
         });
     }, []);
 
+    const showToast = useCallback((message, variant = 'success', duration = 3000) => {
+        setToast({ isOpen: true, message, variant });
+        setTimeout(() => {
+            setToast(prev => ({ ...prev, isOpen: false }));
+        }, duration);
+    }, []);
+
     const handleClose = useCallback((value) => {
         if (dialog.resolve) {
             dialog.resolve(value);
@@ -60,7 +73,7 @@ export const DialogProvider = ({ children }) => {
     }, [dialog]);
 
     return (
-        <DialogContext.Provider value={{ showAlert, showConfirm, dialog, handleClose }}>
+        <DialogContext.Provider value={{ showAlert, showConfirm, showToast, dialog, toast, handleClose }}>
             {children}
         </DialogContext.Provider>
     );

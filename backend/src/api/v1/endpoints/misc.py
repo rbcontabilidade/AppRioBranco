@@ -52,19 +52,51 @@ def create_log(log: LogCreate, user=CurrentUser):
 # Cargos
 @router.get("/cargos")
 def get_cargos(user=CurrentUser):
-    return MiscCRUD.get_cargos().data
+    res = MiscCRUD.get_cargos()
+    return res.data
 
 @router.post("/cargos")
 def create_cargo(cargo: CargoCreate, user=CurrentUser):
-    return MiscCRUD.create_cargo(cargo.model_dump()).data
+    try:
+        res = MiscCRUD.create_cargo(cargo.model_dump())
+        if hasattr(res, 'error') and res.error:
+            # Erro de duplicidade (PGRST 23505 ou similar)
+            if "duplicate key" in str(res.error).lower() or "already exists" in str(res.error).lower():
+                raise HTTPException(status_code=400, detail="Já existe um cargo com este nome.")
+            raise HTTPException(status_code=500, detail=f"Erro ao criar cargo: {res.error}")
+        return res.data
+    except Exception as e:
+        if "already exists" in str(e).lower() or "unique constraint" in str(e).lower():
+            raise HTTPException(status_code=400, detail="Já existe um cargo com este nome.")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/cargos/{cargo_id}")
 def update_cargo(cargo_id: int, updates: CargoUpdate, user=CurrentUser):
-    return MiscCRUD.update_cargo(cargo_id, updates.model_dump(exclude_unset=True)).data
+    try:
+        res = MiscCRUD.update_cargo(cargo_id, updates.model_dump(exclude_unset=True))
+        if hasattr(res, 'error') and res.error:
+            if "duplicate key" in str(res.error).lower() or "already exists" in str(res.error).lower():
+                raise HTTPException(status_code=400, detail="Já existe um cargo com este nome.")
+            raise HTTPException(status_code=500, detail=f"Erro ao atualizar cargo: {res.error}")
+        return res.data
+    except Exception as e:
+        if "already exists" in str(e).lower() or "unique constraint" in str(e).lower():
+            raise HTTPException(status_code=400, detail="Já existe um cargo com este nome.")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/cargos/{cargo_id}")
 def delete_cargo(cargo_id: int, user=CurrentUser):
-    return MiscCRUD.delete_cargo(cargo_id).data
+    try:
+        res = MiscCRUD.delete_cargo(cargo_id)
+        if hasattr(res, 'error') and res.error:
+            if "foreign key constraint" in str(res.error).lower():
+                raise HTTPException(status_code=400, detail="Não é possível excluir este cargo porque existem usuários ou níveis vinculados a ele.")
+            raise HTTPException(status_code=500, detail=f"Erro ao excluir cargo: {res.error}")
+        return res.data
+    except Exception as e:
+        if "foreign key constraint" in str(e).lower():
+            raise HTTPException(status_code=400, detail="Não é possível excluir este cargo porque existem usuários ou níveis vinculados a ele.")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Níveis de Cargo
 @router.get("/cargos/{cargo_id}/niveis")

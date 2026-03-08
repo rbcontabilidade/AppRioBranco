@@ -1,30 +1,77 @@
-import React, { useState, useEffect } from 'react';
-import { GlassCard } from '../../../components/ui/GlassCard/GlassCard';
-import { Button } from '../../../components/ui/Button/Button';
-import api from '../../../services/api';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
-    Shield, Plus, Edit2, Trash2, ChevronDown, ChevronUp, 
-    Search, Layers, CheckSquare, X, ArrowUp, ArrowDown
+    Shield, 
+    Plus, 
+    Search, 
+    Filter, 
+    ChevronDown, 
+    MoreVertical, 
+    Trash2, 
+    Edit2, 
+    CheckCircle2, 
+    XCircle,
+    Layers,
+    Clock,
+    UserCheck,
+    AlertCircle,
+    ChevronUp,
+    Info,
+    Layout,
+    ArrowUp,
+    ArrowDown,
+    Save,
+    X
 } from 'lucide-react';
-import { useDialog } from '../../../contexts/DialogContext';
 import styles from './RolesSettings.module.css';
-import { SYSTEM_SCREENS } from '../../../config/screens';
+import { 
+    getCargos, 
+    createCargo, 
+    updateCargo, 
+    deleteCargo,
+    getCargoNiveis,
+    createCargoNivel,
+    updateCargoNivel,
+    deleteCargoNivel
+} from '../../../../services/api';
+import { useDialog } from '../../../../contexts/DialogContext';
+import { SYSTEM_SCREENS } from '../../../../config/screens';
 
-export const RolesSettings = () => {
+const RolesSettings = () => {
+    // Estados principais
     const [roles, setRoles] = useState([]);
-    const [levels, setLevels] = useState({});
     const [loading, setLoading] = useState(true);
-    const [pageError, setPageError] = useState(null);
-    const [expandedRole, setExpandedRole] = useState(null);
-    const [activeTab, setActiveTab] = useState('permissions');
-    const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState('ALL');
-    const { showAlert, showConfirm } = useDialog();
+    const [error, setError] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [expandedRoleId, setExpandedRoleId] = useState(null);
+    const [activeTab, setActiveTab] = useState('permissions'); // 'permissions' ou 'levels'
+    
+    // Estados do Modal
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [modalMode, setModalMode] = useState('create'); // 'create' ou 'edit'
+    const [editingRole, setEditingRole] = useState(null);
+    const [formData, setFormData] = useState({
+        nome_cargo: '',
+        telas_permitidas: [],
+        status: 'ativo'
+    });
 
-    // Modals state
-    const [roleModal, setRoleModal] = useState({ isOpen: false, data: null });
-    const [levelModal, setLevelModal] = useState({ isOpen: false, roleId: null, data: null });
+    // Estados de Níveis
+    const [levels, setLevels] = useState({}); // { roleId: [levels] }
+    const [loadingLevels, setLoadingLevels] = useState({});
+    const [levelModalOpen, setLevelModalOpen] = useState(false);
+    const [editingLevel, setEditingLevel] = useState(null);
+    const [levelFormData, setLevelFormData] = useState({
+        nome_nivel: '',
+        descricao: '',
+        ordem: 1,
+        status: 'ativo'
+    });
 
+    const { showAlert, showConfirm, showToast } = useDialog();
+
+    // Carregar cargos inicial
     useEffect(() => {
         fetchRoles();
     }, []);
@@ -32,462 +79,608 @@ export const RolesSettings = () => {
     const fetchRoles = async () => {
         try {
             setLoading(true);
-            setPageError(null);
-            const response = await api.get('/cargos');
-            
-            // Garantir que trabalhamos com um Array
-            let rawData = Array.isArray(response.data) ? response.data : 
-                          (response.data?.data ? response.data.data : []);
-
-            const rolesData = rawData.map(r => {
-                let parsedTelas = [];
-                // Sanitização segura de telas_permitidas legadas e atuais
-                if (r?.telas_permitidas) {
-                    if (Array.isArray(r.telas_permitidas)) {
-                        parsedTelas = r.telas_permitidas;
-                    } else if (typeof r.telas_permitidas === 'string') {
-                        try {
-                            parsedTelas = JSON.parse(r.telas_permitidas);
-                            if (!Array.isArray(parsedTelas)) parsedTelas = [r.telas_permitidas];
-                        } catch (e) {
-                             parsedTelas = [r.telas_permitidas]; // Formato raw/desconhecido stringificado
-                        }
-                    }
-                }
-
-                return { 
-                    ...r, 
-                    nome_cargo: r?.nome_cargo || 'Cargo Sem Nome',
-                    telas_permitidas: parsedTelas,
-                    status: (r?.status !== false && r?.status !== 'false' && r?.status !== 0) // Consider active unless explicitly inactive
-                };
-            }).filter(Boolean);
-            setRoles(rolesData);
-        } catch (error) {
-            console.error('Error fetching roles from backend:', error);
-            setPageError('Não foi possível carregar as informações de cargos e níveis do sistema. Por favor, tente recarregar a página.');
+            const data = await getCargos();
+            setRoles(data || []);
+            setError(null);
+        } catch (err) {
+            console.error('Erro ao carregar cargos:', err);
+            setError('Não foi possível carregar os cargos do sistema.');
+            showToast('Erro ao carregar dados dos cargos', 'error');
         } finally {
             setLoading(false);
         }
     };
 
-    const fetchLevels = async (roleId) => {
-        try {
-            const response = await api.get(`/cargos/${roleId}/niveis`);
-            setLevels(prev => ({ ...prev, [roleId]: Array.isArray(response.data) ? response.data : [] }));
-        } catch (error) {
-            console.error(`[RolesSettings] Erro ao carregar níveis do cargo ${roleId}. (Recurso possivelmente indisponível - Tabela/Endpoint)`, error);
-            // Fallback gracioso para manter a UI estável
-            setLevels(prev => ({ ...prev, [roleId]: [] }));
-        }
-    };
+    // Filtragem de cargos
+    const filteredRoles = useMemo(() => {
+        return roles.filter(role => {
+            const matchesSearch = role.nome_cargo?.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesStatus = statusFilter === 'all' || role.status === statusFilter;
+            return matchesSearch && matchesStatus;
+        });
+    }, [roles, searchTerm, statusFilter]);
 
-    const handleExpandRole = (roleId) => {
-        if (expandedRole === roleId) {
-            setExpandedRole(null);
+    // Gerenciamento de Expansão
+    const handleToggleExpand = async (roleId) => {
+        if (expandedRoleId === roleId) {
+            setExpandedRoleId(null);
         } else {
-            setExpandedRole(roleId);
-            setActiveTab('permissions');
+            setExpandedRoleId(roleId);
             if (!levels[roleId]) {
                 fetchLevels(roleId);
             }
         }
     };
 
-    // --- Role Actions ---
-    const handleSaveRole = async (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const permissions = SYSTEM_SCREENS.filter(s => formData.get(`perm_${s.id}`) === 'on').map(s => s.id);
-        
-        const payload = {
-            nome_cargo: formData.get('nome_cargo'),
-            status: formData.get('status') === 'on',
-            telas_permitidas: permissions
-        };
+    // Lógica de Níveis (Hierarquia)
+    const fetchLevels = async (roleId) => {
+        try {
+            setLoadingLevels(prev => ({ ...prev, [roleId]: true }));
+            const data = await getCargoNiveis(roleId);
+            setLevels(prev => ({ ...prev, [roleId]: data || [] }));
+        } catch (err) {
+            console.error(`Erro ao carregar níveis para cargo ${roleId}:`, err);
+            // Fallback para lista vazia se a tabela não existir ou erro
+            setLevels(prev => ({ ...prev, [roleId]: [] }));
+        } finally {
+            setLoadingLevels(prev => ({ ...prev, [roleId]: false }));
+        }
+    };
+
+    // Operações de Cargo
+    const handleOpenCreateModal = () => {
+        setModalMode('create');
+        setEditingRole(null);
+        setFormData({
+            nome_cargo: '',
+            telas_permitidas: [],
+            status: 'ativo'
+        });
+        setIsModalOpen(true);
+    };
+
+    const handleOpenEditModal = (role, e) => {
+        e?.stopPropagation();
+        setModalMode('edit');
+        setEditingRole(role);
+        setFormData({
+            nome_cargo: role.nome_cargo || '',
+            telas_permitidas: Array.isArray(role.telas_permitidas) ? role.telas_permitidas : [],
+            status: role.status || 'ativo'
+        });
+        setIsModalOpen(true);
+    };
+
+    const handleSaveRole = async () => {
+        if (!formData.nome_cargo.trim()) {
+            showToast('O nome do cargo é obrigatório', 'warning');
+            return;
+        }
 
         try {
-            if (roleModal.data?.id) {
-                await api.put(`/cargos/${roleModal.data.id}`, payload);
-                showAlert('Sucesso', 'Cargo atualizado com sucesso.', 'success');
+            setIsSubmitting(true);
+            if (modalMode === 'create') {
+                await createCargo(formData);
+                showToast('Cargo criado com sucesso!', 'success');
             } else {
-                await api.post('/cargos', payload);
-                showAlert('Sucesso', 'Cargo criado com sucesso.', 'success');
+                await updateCargo(editingRole.id, formData);
+                showToast('Cargo atualizado com sucesso!', 'success');
             }
-            setRoleModal({ isOpen: false, data: null });
+            setIsModalOpen(false);
             fetchRoles();
-        } catch (error) {
-            console.error('Error saving role:', error);
-            showAlert('Erro', 'Falha ao salvar cargo.', 'error');
+        } catch (err) {
+            const msg = err.response?.data?.detail || 'Erro ao salvar cargo.';
+            showToast(msg, 'error');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
-    const handleDeleteRole = async (roleId, e) => {
-        e.stopPropagation();
-        
-        const hasLevels = levels[roleId] && levels[roleId].length > 0;
-        
-        showConfirm(
+    const handleDeleteRole = async (role, e) => {
+        e?.stopPropagation();
+        const confirmed = await showConfirm(
             'Excluir Cargo',
-            hasLevels 
-                ? 'Este cargo possui níveis cadastrados. Excluir o cargo também excluirá ou restringirá os níveis (dependendo das regras). Deseja realmente prosseguir?' 
-                : 'Tem certeza que deseja excluir este cargo? Esta ação é irreversível.',
-            async () => {
-                try {
-                    await api.delete(`/cargos/${roleId}`);
-                    showAlert('Sucesso', 'Cargo excluído com sucesso.', 'success');
-                    fetchRoles();
-                    if (expandedRole === roleId) setExpandedRole(null);
-                } catch (error) {
-                    console.error('Error deleting role:', error);
-                    showAlert('Erro', 'Não foi possível excluir o cargo. Verifique dependências.', 'error');
-                }
-            }
+            `Tem certeza que deseja excluir o cargo "${role.nome_cargo}"? Esta ação não pode ser desfeita.`
         );
+
+        if (confirmed) {
+            try {
+                await deleteCargo(role.id);
+                showToast('Cargo excluído com sucesso!', 'success');
+                fetchRoles();
+            } catch (err) {
+                const msg = err.response?.data?.detail || 'Erro ao excluir cargo. Verifique se existem usuários vinculados.';
+                showToast(msg, 'error');
+            }
+        }
     };
 
-    // --- Level Actions ---
-    const handleSaveLevel = async (e) => {
-        e.preventDefault();
-        const roleId = levelModal.roleId;
-        const formData = new FormData(e.target);
-        
-        const payload = {
-            nome_nivel: formData.get('nome_nivel'),
-            descricao: formData.get('descricao') || '',
-            ordem: parseInt(formData.get('ordem') || '0', 10),
-            status: formData.get('status') === 'on'
-        };
-
-        try {
-            if (levelModal.data?.id) {
-                await api.put(`/cargos/${roleId}/niveis/${levelModal.data.id}`, payload);
-                showAlert('Sucesso', 'Nível atualizado.', 'success');
+    const handleToggleScreen = (screenId) => {
+        setFormData(prev => {
+            const current = [...prev.telas_permitidas];
+            const index = current.indexOf(screenId);
+            if (index > -1) {
+                current.splice(index, 1);
             } else {
-                await api.post(`/cargos/${roleId}/niveis`, payload);
-                showAlert('Sucesso', 'Nível adicionado.', 'success');
+                current.push(screenId);
             }
-            setLevelModal({ isOpen: false, roleId: null, data: null });
-            fetchLevels(roleId);
-        } catch (error) {
-            console.error('Error saving level:', error);
-            showAlert('Erro', 'Falha ao salvar nível. Verifique a ordem/nome repetido.', 'error');
+            return { ...prev, telas_permitidas: current };
+        });
+    };
+
+    // Operações de Nível
+    const handleAddLevel = (roleId) => {
+        setEditingLevel(null);
+        const currentLevels = levels[roleId] || [];
+        setLevelFormData({
+            nome_nivel: '',
+            descricao: '',
+            ordem: currentLevels.length + 1,
+            status: 'ativo',
+            cargo_id: roleId
+        });
+        setLevelModalOpen(true);
+    };
+
+    const handleEditLevel = (level) => {
+        setEditingLevel(level);
+        setLevelFormData({
+            nome_nivel: level.nome_nivel,
+            descricao: level.descricao || '',
+            ordem: level.ordem,
+            status: level.status,
+            cargo_id: level.cargo_id
+        });
+        setLevelModalOpen(true);
+    };
+
+    const handleSaveLevel = async () => {
+        if (!levelFormData.nome_nivel.trim()) {
+            showToast('O nome do nível é obrigatório', 'warning');
+            return;
         }
-    };
 
-    const handleDeleteLevel = (roleId, levelId) => {
-        showConfirm(
-            'Excluir Nível',
-            'Confirma a exclusão deste nível hierárquico?',
-            async () => {
-                try {
-                    await api.delete(`/cargos/${roleId}/niveis/${levelId}`);
-                    showAlert('Sucesso', 'Nível excluído.', 'success');
-                    fetchLevels(roleId);
-                } catch (error) {
-                    console.error('Error', error);
-                    showAlert('Erro', 'Falha ao excluir nível.', 'error');
-                }
-            }
-        );
-    };
-
-    const reorderLevel = async (roleId, level, direction) => {
-        const roleLevels = [...(levels[roleId] || [])].sort((a,b) => a.ordem - b.ordem);
-        const index = roleLevels.findIndex(l => l.id === level.id);
-        if ((direction === 'up' && index === 0) || (direction === 'down' && index === roleLevels.length - 1)) return;
-
-        const targetIndex = direction === 'up' ? index - 1 : index + 1;
-        const targetLevel = roleLevels[targetIndex];
-
-        // Swap order in UI optimistically
-        const newOrder = targetLevel.ordem;
-        const oldOrder = level.ordem;
-        
         try {
-            // Need to update both to swap orders to prevent unique constraint if active.
-            // Safe approach: set to negative temp, update target, update source
-            await api.put(`/cargos/${roleId}/niveis/${level.id}`, { ordem: -999 });
-            await api.put(`/cargos/${roleId}/niveis/${targetLevel.id}`, { ordem: oldOrder });
-            await api.put(`/cargos/${roleId}/niveis/${level.id}`, { ordem: newOrder });
-            fetchLevels(roleId);
-        } catch (error) {
-            console.error('Swap error', error);
-            showAlert('Erro', 'Falha ao reordenar', 'error');
-            fetchLevels(roleId); // revert optimistic
+            if (editingLevel) {
+                await updateCargoNivel(editingLevel.id, levelFormData);
+                showToast('Nível atualizado!', 'success');
+            } else {
+                await createCargoNivel(levelFormData);
+                showToast('Nível adicionado!', 'success');
+            }
+            setLevelModalOpen(false);
+            fetchLevels(levelFormData.cargo_id);
+        } catch (err) {
+            showToast('Erro ao salvar nível.', 'error');
         }
     };
 
-    // --- Renders ---
-    const filteredRoles = roles.filter(role => {
-        const roleName = (role.nome_cargo || '').toLowerCase();
-        const search = (searchQuery || '').toLowerCase();
-        const matchesSearch = roleName.includes(search);
-        const matchesStatus = statusFilter === 'ALL' || 
-                             (statusFilter === 'ACTIVE' && role.status) || 
-                             (statusFilter === 'INACTIVE' && !role.status);
-        return matchesSearch && matchesStatus;
-    });
+    const handleDeleteLevel = async (level) => {
+        const confirmed = await showConfirm(
+            'Remover Nível',
+            `Deseja remover o nível "${level.nome_nivel}"?`
+        );
+        if (confirmed) {
+            try {
+                await deleteCargoNivel(level.id);
+                showToast('Nível removido!', 'success');
+                fetchLevels(level.cargo_id);
+            } catch (err) {
+                showToast('Erro ao remover nível.', 'error');
+            }
+        }
+    };
 
-    const renderPermissionsPanel = (role) => (
-        <div className={styles.permissionsGrid}>
-            {SYSTEM_SCREENS.map(screen => {
-                const isAllowed = role.telas_permitidas?.includes(screen.id);
-                return (
-                    <div key={screen.id} className={`${styles.permissionCard} ${isAllowed ? styles.permissionCardActive : ''}`}>
-                        <CheckSquare size={20} className={styles.permIcon} />
-                        <div className={styles.permInfo}>
-                            <span className={styles.permName}>{screen.name}</span>
-                        </div>
-                    </div>
-                );
-            })}
-        </div>
-    );
+    const handleReorderLevel = async (level, direction) => {
+        const roleLevels = [...(levels[level.cargo_id] || [])];
+        const currentIndex = roleLevels.findIndex(l => l.id === level.id);
+        const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
-    const renderLevelsPanel = (roleId) => {
-        const roleLevels = levels[roleId] || [];
-        
+        if (newIndex < 0 || newIndex >= roleLevels.length) return;
+
+        // Troca simples de ordem local para feedback imediato
+        const targetLevel = roleLevels[newIndex];
+        const oldOrder = level.ordem;
+        const newOrder = targetLevel.ordem;
+
+        try {
+            // Atualiza ambos no backend
+            await updateCargoNivel(level.id, { ...level, ordem: newOrder });
+            await updateCargoNivel(targetLevel.id, { ...targetLevel, ordem: oldOrder });
+            fetchLevels(level.cargo_id);
+        } catch (err) {
+            showToast('Erro ao reordenar.', 'error');
+        }
+    };
+
+    // Render Helpers
+    if (loading && roles.length === 0) {
         return (
-            <div className={styles.levelsSection}>
-                <div className={styles.levelsHeader}>
-                    <p className={styles.subtitle}>Gerencie a hierarquia deste cargo (Ex: Junior, Pleno, Senior)</p>
-                    <Button size="small" onClick={() => setLevelModal({ isOpen: true, roleId, data: null })}>
-                        <Plus size={16} /> Adicionar Nível
-                    </Button>
-                </div>
-                
-                {roleLevels.length === 0 ? (
-                    <div className={styles.emptyState}>
-                        <Layers size={48} className={styles.emptyIcon} />
-                        <h4 className={styles.emptyTitle}>Sem Níveis Hierárquicos</h4>
-                        <p className={styles.emptyText}>Este cargo é genérico e não possui variações de níveis. Adicione níveis para criar uma escada de progressão.</p>
-                    </div>
-                ) : (
-                    <div className={styles.levelsList}>
-                        {roleLevels.sort((a,b) => a.ordem - b.ordem).map((level, idx, arr) => (
-                            <div key={level.id} className={styles.levelItem}>
-                                <div style={{display: 'flex', alignItems: 'center'}}>
-                                    <div className={styles.reorderBtns}>
-                                        <button className={styles.orderBtn} disabled={idx === 0} onClick={() => reorderLevel(roleId, level, 'up')} title="Mover para cima"><ArrowUp size={14} /></button>
-                                        <button className={styles.orderBtn} disabled={idx === arr.length - 1} onClick={() => reorderLevel(roleId, level, 'down')} title="Mover para baixo"><ArrowDown size={14} /></button>
-                                    </div>
-                                    <div className={styles.levelOrder}>{level.ordem}</div>
-                                    <div className={styles.levelDetails}>
-                                        <span className={styles.levelName}>
-                                            {level.nome_nivel} 
-                                            {!level.status && <span style={{marginLeft: 8, fontSize: '0.7em', color: '#f87171'}}>(Inativo)</span>}
-                                        </span>
-                                        <span className={styles.levelDesc}>{level.descricao || 'Sem descrição'}</span>
-                                    </div>
-                                </div>
-                                <div className={styles.levelActions}>
-                                    <Button size="small" variant="ghost" onClick={() => setLevelModal({ isOpen: true, roleId, data: level })} title="Editar Nível">
-                                        <Edit2 size={16} />
-                                    </Button>
-                                    <Button size="small" variant="ghost" className="text-danger" onClick={() => handleDeleteLevel(roleId, level.id)} title="Excluir Nível">
-                                        <Trash2 size={16} />
-                                    </Button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
+            <div className={styles.loadingState}>
+                <div className={styles.spinner}></div>
+                <p>Carregando configurações de acesso...</p>
             </div>
         );
-    };
+    }
 
     return (
         <div className={styles.container}>
-            <div className={styles.header}>
-                <div>
-                    <h2 className={styles.title}><Shield size={24} /> Cargos e Níveis</h2>
-                    <p className={styles.subtitle}>Gerencie permissões de sistema e a estrutura hierárquica</p>
+            {/* Header Profissional */}
+            <header className={styles.header}>
+                <div className={styles.headerTitle}>
+                    <span className={styles.breadcrumb}>Configurações / Sistema</span>
+                    <h1 className={styles.mainTitle}>
+                        <Shield size={32} />
+                        Cargos e Permissões
+                    </h1>
+                    <p className={styles.description}>
+                        Gerencie os papéis de acesso do sistema, defina permissões por tela e organize a hierarquia operacional.
+                    </p>
                 </div>
-                <Button onClick={() => setRoleModal({ isOpen: true, data: null })}>
-                    <Plus size={18} /> Novo Cargo
-                </Button>
-            </div>
+                <button className="btn-primary" onClick={handleOpenCreateModal}>
+                    <Plus size={20} />
+                    Novo Cargo
+                </button>
+            </header>
 
-            <div className={styles.topBar}>
-                <div className={styles.searchWrapper}>
-                    <Search size={18} className={styles.searchIcon} />
+            {/* Toolbar com Filtros */}
+            <div className={styles.toolbar}>
+                <div className={styles.searchBox}>
+                    <Search size={18} />
                     <input 
                         type="text" 
-                        placeholder="Buscar cargo..." 
-                        className={styles.searchInput}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Buscar por nome do cargo..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <select 
-                    className={styles.filterSelect}
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                    <option value="ALL">Todos os Status</option>
-                    <option value="ACTIVE">Apenas Ativos</option>
-                    <option value="INACTIVE">Apenas Inativos</option>
-                </select>
-                <div className={styles.resultsCounter}>
-                    {filteredRoles.length} cargo(s)
+                
+                <div className={styles.filters}>
+                    <div className={styles.filterGroup}>
+                        <Filter size={16} />
+                        <select 
+                            value={statusFilter} 
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                        >
+                            <option value="all">Todos os Status</option>
+                            <option value="ativo">Apenas Ativos</option>
+                            <option value="inativo">Apenas Inativos</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div className={styles.stats}>
+                    Exibindo <strong>{filteredRoles.length}</strong> cargos
                 </div>
             </div>
 
-            {pageError ? (
-                <div className={styles.emptyState} style={{ borderColor: 'rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.05)' }}>
-                    <Shield size={48} className={styles.emptyIcon} style={{ color: '#f87171' }} />
-                    <h4 className={styles.emptyTitle} style={{ color: '#f87171' }}>Falha na Comunicação</h4>
-                    <p className={styles.emptyText}>{pageError}</p>
-                    <Button style={{ marginTop: 16 }} onClick={fetchRoles}>Tentar Novamente</Button>
-                </div>
-            ) : loading ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Mapeando sistema de cargos...</div>
-            ) : (
-                <div className={styles.rolesList}>
-                    {filteredRoles.map(role => {
-                        const isExpanded = expandedRole === role.id;
-                        return (
-                            <div key={role.id} className={`${styles.roleCard} ${isExpanded ? styles.roleCardExpanded : ''}`}>
-                                <div className={styles.roleHeader} onClick={() => handleExpandRole(role.id)}>
-                                    <div className={styles.roleInfo}>
-                                        <span className={styles.roleName}>{role.nome_cargo}</span>
-                                        <div className={styles.roleMeta}>
-                                            <span className={styles.metaItem}>
-                                                <CheckSquare size={14} /> {(role.telas_permitidas || []).length} Permissões
+            {/* Listagem de Cargos */}
+            <div className={styles.rolesList}>
+                {filteredRoles.length > 0 ? (
+                    filteredRoles.map(role => (
+                        <div 
+                            key={role.id} 
+                            className={`${styles.roleCard} ${expandedRoleId === role.id ? styles.roleCardExpanded : ''}`}
+                        >
+                            <div className={styles.roleHeader} onClick={() => handleToggleExpand(role.id)}>
+                                <div className={styles.rolePrimary}>
+                                    <div className={styles.roleIcon}>
+                                        <Shield size={24} />
+                                    </div>
+                                    <div className={styles.roleMainInfo}>
+                                        <span className={styles.roleLabel}>{role.nome_cargo}</span>
+                                        <div className={styles.roleBadges}>
+                                            <span className={styles.badge}>
+                                                {Array.isArray(role.telas_permitidas) ? role.telas_permitidas.length : 0} módulos
                                             </span>
-                                            <span className={`${styles.statusBadge} ${role.status ? styles.statusActive : styles.statusInactive}`}>
-                                                {role.status ? 'Ativo' : 'Inativo'}
+                                            <span className={`${styles.statusPill} ${role.status === 'ativo' ? styles.active : styles.inactive}`}>
+                                                {role.status === 'ativo' ? 'Ativo' : 'Inativo'}
                                             </span>
                                         </div>
-                                    </div>
-                                    <div className={styles.roleActions}>
-                                        <Button size="small" variant="ghost" onClick={(e) => { e.stopPropagation(); setRoleModal({ isOpen: true, data: role }); }}>
-                                            <Edit2 size={16} />
-                                        </Button>
-                                        <Button size="small" variant="ghost" className="text-danger" onClick={(e) => handleDeleteRole(role.id, e)}>
-                                            <Trash2 size={16} />
-                                        </Button>
-                                        <button className={styles.expandBtn}>
-                                            <ChevronDown size={20} className={`${styles.expandIcon} ${isExpanded ? styles.expandIconOpen : ''}`} />
-                                        </button>
                                     </div>
                                 </div>
 
-                                {isExpanded && (
-                                    <div className={styles.roleContent}>
-                                        <div className={styles.tabs}>
-                                            <button 
-                                                className={`${styles.tabBtn} ${activeTab === 'permissions' ? styles.tabActive : ''}`}
-                                                onClick={() => setActiveTab('permissions')}
-                                            >
-                                                <Shield size={16} /> Permissões Base
-                                            </button>
-                                            <button 
-                                                className={`${styles.tabBtn} ${activeTab === 'levels' ? styles.tabActive : ''}`}
-                                                onClick={() => setActiveTab('levels')}
-                                            >
-                                                <Layers size={16} /> Níveis Hierárquicos
-                                            </button>
-                                        </div>
-                                        <div className={styles.tabContent}>
-                                            {activeTab === 'permissions' ? renderPermissionsPanel(role) : renderLevelsPanel(role.id)}
-                                        </div>
+                                <div className={styles.roleActions}>
+                                    <button 
+                                        className={styles.actionBtn} 
+                                        onClick={(e) => handleOpenEditModal(role, e)}
+                                        title="Editar Cargo"
+                                    >
+                                        <Edit2 size={16} />
+                                    </button>
+                                    <button 
+                                        className={`${styles.actionBtn} ${styles.danger}`}
+                                        onClick={(e) => handleDeleteRole(role, e)}
+                                        title="Excluir Cargo"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                    <div className={`${styles.chevron} ${expandedRoleId === role.id ? styles.open : ''}`}>
+                                        <ChevronDown size={20} />
                                     </div>
-                                )}
+                                </div>
                             </div>
-                        );
-                    })}
-                    
-                    {!loading && filteredRoles.length === 0 && (
-                        <div className={styles.emptyState}>
-                            <Shield size={48} className={styles.emptyIcon} />
-                            <h4 className={styles.emptyTitle}>Nenhum Cargo Encontrado</h4>
-                            <p className={styles.emptyText}>Não localizamos cargos com os filtros atuais. Adicione novos cargos no botão superior.</p>
+
+                            {/* Conteúdo Expandido */}
+                            <div className={`${styles.collapsedContent} ${expandedRoleId === role.id ? styles.expanded : ''}`}>
+                                <div className={styles.tabsBar}>
+                                    <button 
+                                        className={`${styles.tabItem} ${activeTab === 'permissions' ? styles.tabActive : ''}`}
+                                        onClick={() => setActiveTab('permissions')}
+                                    >
+                                        <Layout size={16} />
+                                        Permissões de Acesso
+                                    </button>
+                                    <button 
+                                        className={`${styles.tabItem} ${activeTab === 'levels' ? styles.tabActive : ''}`}
+                                        onClick={() => setActiveTab('levels')}
+                                    >
+                                        <Layers size={16} />
+                                        Níveis e Hierarquia
+                                    </button>
+                                </div>
+
+                                <div className={styles.tabPanel}>
+                                    {activeTab === 'permissions' ? (
+                                        <div className={styles.permissionsPanel}>
+                                            <div className={styles.panelInfo}>
+                                                <Info size={16} />
+                                                Este cargo possui acesso às seguintes telas e módulos do sistema:
+                                            </div>
+                                            <div className={styles.screensGrid}>
+                                                {SYSTEM_SCREENS.map(screen => {
+                                                    const isPermitted = role.telas_permitidas?.includes(screen.id);
+                                                    return (
+                                                        <div 
+                                                            key={screen.id} 
+                                                            className={`${styles.permissionCard} ${isPermitted ? styles.permissionCardActive : ''}`}
+                                                        >
+                                                            <div className={styles.permCheck}>
+                                                                {isPermitted ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+                                                            </div>
+                                                            <div className={styles.permInfo}>
+                                                                <span className={styles.permName}>{screen.label}</span>
+                                                                <span className={styles.permStatus}>
+                                                                    {isPermitted ? 'Permitido' : 'Bloqueado'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            
+                                            <div className={styles.metadataSection}>
+                                                {role.created_at && (
+                                                    <div className={styles.metaBox}>
+                                                        <Clock size={14} />
+                                                        Criado em: {new Date(role.created_at).toLocaleDateString('pt-BR')}
+                                                    </div>
+                                                )}
+                                                {role.updated_at && (
+                                                    <div className={styles.metaBox}>
+                                                        <UserCheck size={14} />
+                                                        Última atualização: {new Date(role.updated_at).toLocaleDateString('pt-BR')}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className={styles.levelsSection}>
+                                            <div className={styles.levelsHeader}>
+                                                <h4 className={styles.sectionTitle}>Níveis deste Cargo</h4>
+                                                <button 
+                                                    className="btn-secondary btn-sm"
+                                                    onClick={() => handleAddLevel(role.id)}
+                                                >
+                                                    <Plus size={14} />
+                                                    Adicionar Nível
+                                                </button>
+                                            </div>
+
+                                            {loadingLevels[role.id] ? (
+                                                <div className={styles.emptyStateMini}>Carregando níveis...</div>
+                                            ) : (levels[role.id] || []).length > 0 ? (
+                                                <div className={styles.levelsList}>
+                                                    {(levels[role.id] || [])
+                                                        .sort((a,b) => a.ordem - b.ordem)
+                                                        .map((lvl, idx, arr) => (
+                                                        <div key={lvl.id} className={styles.levelItem}>
+                                                            <div className={styles.levelMain}>
+                                                                <div className={styles.reorderBtns}>
+                                                                    <button 
+                                                                        className={styles.orderBtn}
+                                                                        onClick={() => handleReorderLevel(lvl, 'up')}
+                                                                        disabled={idx === 0}
+                                                                    >
+                                                                        <ChevronUp size={14} />
+                                                                    </button>
+                                                                    <button 
+                                                                        className={styles.orderBtn}
+                                                                        onClick={() => handleReorderLevel(lvl, 'down')}
+                                                                        disabled={idx === arr.length - 1}
+                                                                    >
+                                                                        <ChevronDown size={14} />
+                                                                    </button>
+                                                                </div>
+                                                                <div className={styles.levelBadge}>{lvl.ordem}</div>
+                                                                <div className={styles.levelText}>
+                                                                    <span className={styles.levelName}>
+                                                                        {lvl.nome_nivel}
+                                                                        {lvl.status === 'inativo' && <span className={styles.inactiveTag}>Inativo</span>}
+                                                                    </span>
+                                                                    <span className={styles.levelDesc}>{lvl.descricao || 'Sem descrição'}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className={styles.levelActions}>
+                                                                <button className={styles.iconBtn} onClick={() => handleEditLevel(lvl)}>
+                                                                    <Edit2 size={14} />
+                                                                </button>
+                                                                <button className={`${styles.iconBtn} ${styles.btnDanger}`} onClick={() => handleDeleteLevel(lvl)}>
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className={styles.emptyStateMini}>
+                                                    Nenhum nível hierárquico definido para este cargo.
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
-                    )}
+                    ))
+                ) : (
+                    <div className={styles.emptyState}>
+                        <AlertCircle size={48} />
+                        <h4>Nenhum cargo encontrado</h4>
+                        <p>Tente ajustar seus filtros de busca ou crie um novo cargo para começar.</p>
+                        <button className="btn-secondary" onClick={() => {setSearchTerm(''); setStatusFilter('all');}}>
+                            Limpar Filtros
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* Modal de Cargo (Criar/Editar) */}
+            {isModalOpen && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modalContent}>
+                        <div className={styles.modalHeader}>
+                            <h3 className={styles.modalTitle}>
+                                {modalMode === 'create' ? 'Criar Novo Cargo' : 'Editar Cargo'}
+                            </h3>
+                            <button className={styles.closeBtn} onClick={() => setIsModalOpen(false)}>
+                                <X size={24} />
+                            </button>
+                        </div>
+                        
+                        <div className={styles.modalBody}>
+                            <div className={styles.inputGroup}>
+                                <label>Nome do Cargo</label>
+                                <div className={styles.inputWithIcon}>
+                                    <Shield size={18} />
+                                    <input 
+                                        type="text" 
+                                        placeholder="Ex: Analista Fiscal Sênior" 
+                                        value={formData.nome_cargo}
+                                        onChange={(e) => setFormData({...formData, nome_cargo: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className={styles.switchRow}>
+                                <label className={styles.switchLabel}>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={formData.status === 'ativo'}
+                                        onChange={(e) => setFormData({...formData, status: e.target.checked ? 'ativo' : 'inativo'})}
+                                    />
+                                    <span className={styles.switchText}>Cargo Ativo (Permite vincular novos usuários)</span>
+                                </label>
+                            </div>
+
+                            <div className={styles.permissionsSection}>
+                                <h4 className={styles.sectionHeading}>
+                                    <Layout size={18} />
+                                    Permissões de Telas
+                                </h4>
+                                <div className={styles.permissionsSelectGrid}>
+                                    {SYSTEM_SCREENS.map(screen => (
+                                        <div 
+                                            key={screen.id} 
+                                            className={styles.checkItem}
+                                            onClick={() => handleToggleScreen(screen.id)}
+                                        >
+                                            <input 
+                                                type="checkbox" 
+                                                checked={formData.telas_permitidas.includes(screen.id)}
+                                                readOnly
+                                            />
+                                            <span className={styles.checkLabel}>{screen.label}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className={styles.modalActions}>
+                            <button className="btn-secondary" onClick={() => setIsModalOpen(false)} disabled={isSubmitting}>
+                                Cancelar
+                            </button>
+                            <button className="btn-primary" onClick={handleSaveRole} disabled={isSubmitting}>
+                                {isSubmitting ? 'Salvando...' : modalMode === 'create' ? 'Criar Cargo' : 'Salvar Alterações'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 
-            {/* Custom Simple Modals as Overlays directly (Ensuring Premium UI without wrapper conflicts) */}
-            {roleModal.isOpen && (
-                <div style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000}}>
-                    <GlassCard style={{ width: '100%', maxWidth: '600px', padding: '24px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
-                            <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-light)' }}>{roleModal.data ? 'Editar Cargo Base' : 'Novo Cargo Base'}</h3>
-                            <button onClick={() => setRoleModal({ isOpen: false, data: null })} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}><X size={20}/></button>
+            {/* Modal de Nível (Criar/Editar) */}
+            {levelModalOpen && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modalContent} style={{maxWidth: '500px'}}>
+                        <div className={styles.modalHeader}>
+                            <h3 className={styles.modalTitle}>
+                                {editingLevel ? 'Editar Nível' : 'Novo Nível'}
+                            </h3>
+                            <button className={styles.closeBtn} onClick={() => setLevelModalOpen(false)}>
+                                <X size={24} />
+                            </button>
                         </div>
-                        <form onSubmit={handleSaveRole}>
-                            <div className={styles.formGroup}>
-                                <label className={styles.formLabel}>Nome do Cargo</label>
-                                <input type="text" name="nome_cargo" required className={styles.formInput} defaultValue={roleModal.data?.nome_cargo || ''} placeholder="Ex: Analista Fiscal" />
-                            </div>
-                            
-                            <label className={styles.formCheckbox}>
-                                <input type="checkbox" name="status" className={styles.checkboxInput} defaultChecked={roleModal.data ? roleModal.data.status : true} />
-                                Ativo no sistema
-                            </label>
-
-                            <h4 style={{ color: 'var(--text-light)', marginTop: '24px', marginBottom: '12px', fontSize: '1rem' }}>Concessão de Telas</h4>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                {SYSTEM_SCREENS.map(screen => (
-                                    <label key={screen.id} className={styles.formCheckbox}>
-                                        <input 
-                                            type="checkbox" 
-                                            name={`perm_${screen.id}`} 
-                                            className={styles.checkboxInput} 
-                                            defaultChecked={roleModal.data?.telas_permitidas?.includes(screen.id)}
-                                        />
-                                        {screen.name}
-                                    </label>
-                                ))}
+                        
+                        <div className={styles.modalBody}>
+                            <div className={styles.inputGroup}>
+                                <label>Nome do Nível</label>
+                                <input 
+                                    className={styles.styledInput}
+                                    type="text" 
+                                    placeholder="Ex: Nível 1, Pleno, etc." 
+                                    value={levelFormData.nome_nivel}
+                                    onChange={(e) => setLevelFormData({...levelFormData, nome_nivel: e.target.value})}
+                                />
                             </div>
 
-                            <div className={styles.modalFooter}>
-                                <Button type="button" variant="ghost" onClick={() => setRoleModal({ isOpen: false, data: null })}>Cancelar</Button>
-                                <Button type="submit">Salvar Cargo</Button>
+                            <div className={styles.inputGroup}>
+                                <label>Descrição</label>
+                                <textarea 
+                                    className={styles.styledTextarea}
+                                    placeholder="Descreva as responsabilidades deste nível..."
+                                    rows={3}
+                                    value={levelFormData.descricao}
+                                    onChange={(e) => setLevelFormData({...levelFormData, descricao: e.target.value})}
+                                />
                             </div>
-                        </form>
-                    </GlassCard>
-                </div>
-            )}
 
-            {levelModal.isOpen && (
-                <div style={{position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000}}>
-                    <GlassCard style={{ width: '100%', maxWidth: '500px', padding: '24px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
-                            <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-light)' }}>{levelModal.data ? 'Editar Nível' : 'Novo Nível'}</h3>
-                            <button onClick={() => setLevelModal({ isOpen: false, roleId: null, data: null })} style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}><X size={20}/></button>
+                            <div className={styles.switchRow}>
+                                <label className={styles.switchLabel}>
+                                    <input 
+                                        type="checkbox" 
+                                        checked={levelFormData.status === 'ativo'}
+                                        onChange={(e) => setLevelFormData({...levelFormData, status: e.target.checked ? 'ativo' : 'inativo'})}
+                                    />
+                                    <span className={styles.switchText}>Nível Ativo</span>
+                                </label>
+                            </div>
                         </div>
-                        <form onSubmit={handleSaveLevel}>
-                            <div className={styles.formGroup}>
-                                <label className={styles.formLabel}>Nome Deste Nível</label>
-                                <input type="text" name="nome_nivel" required className={styles.formInput} defaultValue={levelModal.data?.nome_nivel || ''} placeholder="Ex: Junior" />
-                            </div>
-                            
-                            <div className={styles.formGroup}>
-                                <label className={styles.formLabel}>Ordem de Precedência (Progressão Numérica)</label>
-                                <input type="number" name="ordem" required className={styles.formInput} defaultValue={levelModal.data?.ordem || (levels[levelModal.roleId]?.length > 0 ? Math.max(...levels[levelModal.roleId].map(l => l.ordem)) + 1 : 1)} min="1" />
-                            </div>
 
-                            <div className={styles.formGroup}>
-                                <label className={styles.formLabel}>Descrição de Escopo (Opcional)</label>
-                                <input type="text" name="descricao" className={styles.formInput} defaultValue={levelModal.data?.descricao || ''} placeholder="Breve descrição dos requisitos deste nível" />
-                            </div>
-
-                            <label className={styles.formCheckbox}>
-                                <input type="checkbox" name="status" className={styles.checkboxInput} defaultChecked={levelModal.data ? levelModal.data.status : true} />
-                                Status Ativo
-                            </label>
-
-                            <div className={styles.modalFooter}>
-                                <Button type="button" variant="ghost" onClick={() => setLevelModal({ isOpen: false, roleId: null, data: null })}>Cancelar</Button>
-                                <Button type="submit">Salvar Nível</Button>
-                            </div>
-                        </form>
-                    </GlassCard>
+                        <div className={styles.modalActions}>
+                            <button className="btn-secondary" onClick={() => setLevelModalOpen(false)}>
+                                Cancelar
+                            </button>
+                            <button className="btn-primary" onClick={handleSaveLevel}>
+                                <Plus size={18} />
+                                {editingLevel ? 'Salvar' : 'Adicionar'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
     );
 };
+
+export default RolesSettings;
