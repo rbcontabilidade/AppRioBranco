@@ -47,14 +47,19 @@ const PrivateRoute = ({ children }) => {
         if (isAdmin) return children;
 
         // 2. Se a tela for restrita a admin e o usuário não for, bloqueia
-        if (currentScreen.adminOnly && !isAdmin) {
-            console.warn(`[RouteGuard] Acesso negado: Rota ${currentPath} é exclusiva para admin.`);
-            return <Navigate to="/" replace />;
-        }
-
         // 3. Se a tela exigir permissão específica e o usuário não tiver, bloqueia
-        if (currentScreen.id && !permissions.includes(currentScreen.id)) {
-            console.warn(`[RouteGuard] Acesso negado: Usuário não tem a permissão '${currentScreen.id}'`);
+        const isRestricted = (currentScreen.adminOnly && !isAdmin) || 
+                            (currentScreen.id && !permissions.includes(currentScreen.id));
+
+        if (isRestricted) {
+            console.warn(`[RouteGuard] Acesso negado para rota: ${currentPath}`);
+            
+            // Se já estamos no dashboard ou na raiz e fomos negados (bug de permissão grave), 
+            // redirecionamos para login para limpar a sessão em vez de causar loop.
+            if (currentPath === '/' || currentPath === '/dashboard') {
+                return <Navigate to="/login" replace />;
+            }
+            
             return <Navigate to="/" replace />;
         }
     }

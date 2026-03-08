@@ -167,6 +167,11 @@ async def get_me(user_info: tuple = Depends(get_current_user_from_cookie)):
                   except: tt = []
               telas = tt
     
+    # Garantir telas mínimas para evitar loop de redirecionamento no frontend
+    for t_base in ["dashboard", "settings"]:
+        if t_base not in telas:
+            telas.append(t_base)
+    
     user_role = user.get("permissao", "Operacional")
     is_gerente = user_role.lower() in ["gerente", "supervisor"]
     is_admin = user_role.lower() == "admin" or user.get("nome", "").lower() == "manager"

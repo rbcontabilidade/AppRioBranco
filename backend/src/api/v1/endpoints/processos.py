@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Optional
-from src.core.database import supabase_admin as supabase
+from src.core.database import supabase, supabase_admin
 import logging
 from src.api.v1.endpoints.auth import get_current_user_from_cookie
 
@@ -264,7 +264,7 @@ async def lancar_processo_cliente(client_id: int, template_id: int):
     """
     try:
         # 1. Vincula o cliente ao processo se não existir (upsert)
-        supabase.table("rh_processos_clientes").upsert({
+        supabase_admin.table("rh_processos_clientes").upsert({
             "processo_id": template_id,
             "cliente_id": client_id
         }).execute()
@@ -278,13 +278,13 @@ async def lancar_processo_cliente(client_id: int, template_id: int):
         comp_id = res_comp.data[0]['id']
 
         # 3. Verifica se já existe execução para evitar duplicidade na mesma competência
-        res_exec = supabase.table("rh_execucao_processos").select("id").eq("processo_id", template_id).eq("cliente_id", client_id).eq("competencia_id", comp_id).execute()
+        res_exec = supabase_admin.table("rh_execucao_processos").select("id").eq("processo_id", template_id).eq("cliente_id", client_id).eq("competencia_id", comp_id).execute()
         
         if res_exec.data:
             return {"message": "Processo já está em execução para este cliente nesta competência."}
 
         # 4. Criar Execução do Processo
-        res_new_exec = supabase.table("rh_execucao_processos").insert({
+        res_new_exec = supabase_admin.table("rh_execucao_processos").insert({
             "processo_id": template_id,
             "cliente_id": client_id,
             "competencia_id": comp_id,
@@ -303,7 +303,7 @@ async def lancar_processo_cliente(client_id: int, template_id: int):
 
         for t in res_tarefas.data:
             # Cria a tarefa de execução
-            res_t_exec = supabase.table("rh_execucao_tarefas").insert({
+            res_t_exec = supabase_admin.table("rh_execucao_tarefas").insert({
                 "execucao_processo_id": exec_proc_id,
                 "tarefa_id": t['id'],
                 "status": "PENDENTE" if not t['dependente_de_id'] else "BLOQUEADA"
@@ -317,20 +317,20 @@ async def lancar_processo_cliente(client_id: int, template_id: int):
                 res_resp = supabase.table("rh_tarefas_responsaveis").select("funcionario_id").eq("tarefa_id", t['id']).execute()
                 if res_resp.data:
                     resp_payload = [{"execucao_tarefa_id": t_exec_id, "funcionario_id": r['funcionario_id']} for r in res_resp.data]
-                    supabase.table("rh_execucao_tarefas_responsaveis").insert(resp_payload).execute()
+                    supabase_admin.table("rh_execucao_tarefas_responsaveis").insert(resp_payload).execute()
 
                 # Checklists
                 res_check = supabase.table("rh_tarefas_checklists").select("*").eq("tarefa_id", t['id']).execute()
                 if res_check.data:
                     check_payload = [{"execucao_tarefa_id": t_exec_id, "checklist_id": c['id'], "item_texto": c['item_texto']} for c in res_check.data]
-                    supabase.table("rh_execucao_checklists").insert(check_payload).execute()
+                    supabase_admin.table("rh_execucao_checklists").insert(check_payload).execute()
 
         # 6. Atualizar Dependências Espelhadas na Execução
         for t in res_tarefas.data:
             if t['dependente_de_id'] and t['dependente_de_id'] in id_map:
                 exec_id = id_map[t['id']]
                 dep_exec_id = id_map[t['dependente_de_id']]
-                supabase.table("rh_execucao_tarefas").update({"dependente_de_id": dep_exec_id}).eq("id", exec_id).execute()
+                supabase_admin.table("rh_execucao_tarefas").update({"dependente_de_id": dep_exec_id}).eq("id", exec_id).execute()
 
         return {"message": "Processo lançado com sucesso", "execution_id": exec_proc_id}
 
@@ -402,7 +402,7 @@ async def desvincular_processo_cliente(client_id: int, template_id: int):
                     logger.warning(f"Falha ao remover execução {exec_id} ou já não existia.")
 
         # 7. Por fim, remove o vínculo permanente (template-cliente)
-        res_link = supabase.table("rh_processos_clientes").delete().eq("cliente_id", client_id).eq("processo_id", template_id).execute()
+        res_link = supabase_admin.table("rh_processos_clientes").delete().eq("cliente_id", client_id).eq("processo_id", template_id).execute()
         
         if res_link.data:
             logger.info(f"Vínculo permanente removido: Cliente {client_id}, Processo {template_id}")
