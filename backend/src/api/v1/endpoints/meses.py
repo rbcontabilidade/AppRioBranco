@@ -129,6 +129,13 @@ def gerar_competencia(mes: int, ano: int, user=CurrentUser):
     Invoca a função RPC que clona os processos para a nova competência
     respeitando as regras de recorrência.
     """
+    # Guardrail: Não permitir gerar nova competência se já houver uma ativa!
+    if _existe_competencia_ativa():
+        raise HTTPException(
+            status_code=409,
+            detail="Já existe uma competência ativa. Encerre-a antes de gerar uma nova."
+        )
+
     try:
         client = supabase_admin if supabase_admin else supabase
         res = client.rpc("gerador_nova_competencia", {
