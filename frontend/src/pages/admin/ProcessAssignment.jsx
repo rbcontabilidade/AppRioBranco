@@ -22,6 +22,7 @@ export const ProcessAssignment = () => {
     // Seleções
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [selectedClientIds, setSelectedClientIds] = useState([]);
+    const [assignedClientIds, setAssignedClientIds] = useState([]); // Clientes já vinculados
 
     // Filtros
     const [searchTerm, setSearchTerm] = useState('');
@@ -56,14 +57,30 @@ export const ProcessAssignment = () => {
     }, []);
 
     const filteredClients = clients.filter(c => {
+        // Filtro de Busca e Regime
         const matchName = (c.razao_social || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
             (c.cnpj || '').includes(searchTerm);
         const matchRegime = selectedRegime ? c.regime === selectedRegime : true;
-        return matchName && matchRegime;
+        
+        // NOVO: Filtro para excluir quem já está vinculado ao processo
+        const isNotAssigned = !assignedClientIds.includes(c.id);
+        
+        return matchName && matchRegime && isNotAssigned;
     });
 
-    const handleSelectTemplate = (template) => {
+    const handleSelectTemplate = async (template) => {
         setSelectedTemplate(template);
+        setSelectedClientIds([]);
+        setAssignedClientIds([]);
+        
+        try {
+            // Busca clientes que já possuem este processo vinculado
+            const resAtribuidos = await api.get(`/processos/${template.id}/clientes-atribuidos`);
+            setAssignedClientIds(resAtribuidos.data || []);
+        } catch (error) {
+            console.error("Erro ao buscar clientes já atribuídos:", error);
+        }
+        
         setCurrentStep(2);
     };
 
@@ -253,8 +270,22 @@ export const ProcessAssignment = () => {
                     <tbody>
                         {filteredClients.length === 0 ? (
                             <tr>
-                                <td colSpan="4" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                    Nenhum cliente encontrado para os filtros aplicados.
+                                <td colSpan="4" style={{ padding: '40px', textAlign: 'center' }}>
+                                    {assignedClientIds.length > 0 && clients.length > 0 && filteredClients.length === 0 ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ p: '12px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '50%', color: '#10b981' }}>
+                                                <CheckCircle size={32} />
+                                            </div>
+                                            <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#ffffff' }}>Tudo pronto!</div>
+                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                                Todos os clientes elegíveis já estão vinculados a este processo.
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div style={{ color: 'var(--text-muted)' }}>
+                                            Nenhum cliente encontrado para os filtros aplicados.
+                                        </div>
+                                    )}
                                 </td>
                             </tr>
                         ) : (

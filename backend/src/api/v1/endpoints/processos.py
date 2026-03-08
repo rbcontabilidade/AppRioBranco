@@ -362,6 +362,16 @@ async def desvincular_processo_cliente(client_id: int, template_id: int):
         logger.error(f"Erro ao desvincular processo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/{id}/clientes-atribuidos")
+async def listar_clientes_atribuidos(id: int):
+    """Retorna os IDs dos clientes que já estão vinculados a este processo (template)."""
+    try:
+        res = supabase.table("rh_processos_clientes").select("cliente_id").eq("processo_id", id).execute()
+        return [r['cliente_id'] for r in (res.data or [])]
+    except Exception as e:
+        logger.error(f"Erro ao listar clientes atribuídos ao processo {id}: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao buscar clientes vinculados.")
+
 # --- Dashboard Execução ---
 
 @router.get("/execucao/me")
