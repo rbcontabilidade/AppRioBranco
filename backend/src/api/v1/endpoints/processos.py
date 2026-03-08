@@ -354,10 +354,41 @@ async def listar_processos_cliente(client_id: int):
 
 @router.delete("/clientes/{client_id}/{template_id}")
 async def desvincular_processo_cliente(client_id: int, template_id: int):
-    """Remove o vínculo entre cliente e processo"""
+    """
+    Remove o vínculo entre cliente e processo e limpa execuções pendentes na competência aberta.
+    """
     try:
+        # 1. Busca competência ativa
+        res_comp = supabase.table("rh_competencias").select("id").eq("status", "ABERTA").order("id", desc=True).limit(1).execute()
+        
+        if res_comp.data:
+            comp_id = res_comp.data[0]['id']
+            
+            # 2. Busca a execução vinculada para este cliente/processo nesta competência
+            res_exec = supabase.table("rh_execucao_processos").select("id").eq("processo_id", template_id).eq("cliente_id", client_id).eq("competencia_id", comp_id).execute()
+            
+            if res_exec.data:
+                exec_id = res_exec.data[0]['id']
+                logger.info(f"Limpando execução {exec_id} do cliente {client_id} (Processo Unassigned)")
+                
+                # 3. Busca tarefas desta execução
+                res_et = supabase.table("rh_execucao_tarefas").select("id").eq("execucao_processo_id", exec_id).execute()
+                et_ids = [r['id'] for r in (res_et.data or [])]
+                
+                if et_ids:
+                    # 4. Limpa responsáveis e checklists das tarefas
+                    supabase.table("rh_execucao_tarefas_responsaveis").delete().in_("execucao_tarefa_id", et_ids).execute()
+                    supabase.table("rh_execucao_checklists").delete().in_("execucao_tarefa_id", et_ids).execute()
+                    # 5. Limpa as tarefas de execução
+                    supabase.table("rh_execucao_tarefas").delete().eq("execucao_processo_id", exec_id).execute()
+                
+                # 6. Deleta a execução do processo
+                supabase.table("rh_execucao_processos").delete().eq("id", exec_id).execute()
+
+        # 7. Por fim, remove o vínculo permanente (template-cliente)
         supabase.table("rh_processos_clientes").delete().eq("cliente_id", client_id).eq("processo_id", template_id).execute()
-        return {"message": "Vínculo removido com sucesso"}
+        
+        return {"message": "Vínculo e execuções ativas removidos com sucesso"}
     except Exception as e:
         logger.error(f"Erro ao desvincular processo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
