@@ -35,11 +35,17 @@ const AdvancedDashboardView = ({ tasks, onCompleteTask, isAdmin }) => {
 
     const [selectedProcessName, setSelectedProcessName] = useState(processesData[0]?.name || null);
     
+    // Preserva a seleção de processo após refetch: só reseta se o processo anterior não existe mais
     React.useEffect(() => {
-        if (!selectedProcessName && processesData.length > 0) {
-            setSelectedProcessName(processesData[0].name);
+        if (processesData.length > 0) {
+            const aindaExiste = processesData.some(p => p.name === selectedProcessName);
+            if (!aindaExiste) {
+                // Fallback seguro: usa o primeiro processo disponível
+                setSelectedProcessName(processesData[0].name);
+            }
+            // Se ainda existe, mantém a seleção atual — não faz nada
         }
-    }, [processesData, selectedProcessName]);
+    }, [processesData]);
 
     const activeProcess = processesData.find(p => p.name === selectedProcessName);
 
@@ -75,11 +81,20 @@ const AdvancedDashboardView = ({ tasks, onCompleteTask, isAdmin }) => {
 
     const [selectedClientName, setSelectedClientName] = useState(null);
 
+    // Preserva o cliente selecionado após refetch: só reseta se o cliente anterior não existe mais
     React.useEffect(() => {
-        if (clientsData.length > 0 && (!selectedClientName || !clientsData.find(c => c.name === selectedClientName))) {
-            setSelectedClientName(clientsData[0].name);
+        if (clientsData.length > 0) {
+            const aindaExiste = clientsData.some(c => c.name === selectedClientName);
+            if (!aindaExiste) {
+                // Fallback seguro: usa o primeiro cliente do processo
+                setSelectedClientName(clientsData[0]?.name ?? null);
+            }
+            // Se ainda existe, mantém o cliente selecionado — não faz nada
+        } else {
+            // Processo não tem clientes — limpa a seleção
+            setSelectedClientName(null);
         }
-    }, [clientsData, selectedClientName]);
+    }, [clientsData]);
 
     const activeClient = clientsData.find(c => c.name === selectedClientName);
 
