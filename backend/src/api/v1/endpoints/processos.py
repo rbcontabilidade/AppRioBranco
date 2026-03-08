@@ -358,24 +358,36 @@ async def desvincular_processo_cliente(client_id: int, template_id: int):
     Remove o vínculo entre cliente e processo e limpa execuções pendentes na competência aberta.
     """
     try:
-        # 1. Busca competência ativa
-        res_comp = supabase.table("rh_competencias").select("id").eq("status", "ABERTA").order("id", desc=True).limit(1).execute()
+        logger.info(f"Iniciando desvínculo: Cliente {client_id}, Processo {template_id}")
         
-        if res_comp.data:
-            comp_id = res_comp.data[0]['id']
+        # 1. Busca competências ativas (suporta variações de status)
+        active_statuses = ["ABERTA", "Open", "Aberto", "ativa", "ATIVA"]
+        res_comp = supabase.table("rh_competencias").select("id, status").in_("status", active_statuses).execute()
+        
+        comp_ids = [c['id'] for c in (res_comp.data or [])]
+        logger.info(f"Competências ativas encontradas para limpeza: {comp_ids}")
+
+        if comp_ids:
+            # 2. Busca TODAS as execuções vinculadas para este cliente/processo nessas competências
+            res_execs = supabase.table("rh_execucao_processos") \
+                .select("id") \
+                .eq("processo_id", template_id) \
+                .eq("cliente_id", client_id) \
+                .in_("competencia_id", comp_ids) \
+                .execute()
             
-            # 2. Busca a execução vinculada para este cliente/processo nesta competência
-            res_exec = supabase.table("rh_execucao_processos").select("id").eq("processo_id", template_id).eq("cliente_id", client_id).eq("competencia_id", comp_id).execute()
+            executions = res_execs.data or []
+            logger.info(f"Execuções encontradas para remover: {[e['id'] for e in executions]}")
             
-            if res_exec.data:
-                exec_id = res_exec.data[0]['id']
-                logger.info(f"Limpando execução {exec_id} do cliente {client_id} (Processo Unassigned)")
+            for exec_rec in executions:
+                exec_id = exec_rec['id']
                 
                 # 3. Busca tarefas desta execução
                 res_et = supabase.table("rh_execucao_tarefas").select("id").eq("execucao_processo_id", exec_id).execute()
                 et_ids = [r['id'] for r in (res_et.data or [])]
                 
                 if et_ids:
+                    logger.info(f"Limpando {len(et_ids)} tarefas da execução {exec_id}")
                     # 4. Limpa responsáveis e checklists das tarefas
                     supabase.table("rh_execucao_tarefas_responsaveis").delete().in_("execucao_tarefa_id", et_ids).execute()
                     supabase.table("rh_execucao_checklists").delete().in_("execucao_tarefa_id", et_ids).execute()
@@ -383,10 +395,17 @@ async def desvincular_processo_cliente(client_id: int, template_id: int):
                     supabase.table("rh_execucao_tarefas").delete().eq("execucao_processo_id", exec_id).execute()
                 
                 # 6. Deleta a execução do processo
-                supabase.table("rh_execucao_processos").delete().eq("id", exec_id).execute()
+                res_del_exec = supabase.table("rh_execucao_processos").delete().eq("id", exec_id).execute()
+                if res_del_exec.data:
+                    logger.info(f"Execução {exec_id} removida com sucesso.")
+                else:
+                    logger.warning(f"Falha ao remover execução {exec_id} ou já não existia.")
 
         # 7. Por fim, remove o vínculo permanente (template-cliente)
-        supabase.table("rh_processos_clientes").delete().eq("cliente_id", client_id).eq("processo_id", template_id).execute()
+        res_link = supabase.table("rh_processos_clientes").delete().eq("cliente_id", client_id).eq("processo_id", template_id).execute()
+        
+        if res_link.data:
+            logger.info(f"Vínculo permanente removido: Cliente {client_id}, Processo {template_id}")
         
         return {"message": "Vínculo e execuções ativas removidos com sucesso"}
     except Exception as e:
