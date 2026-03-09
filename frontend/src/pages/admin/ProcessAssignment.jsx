@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GlassCard } from '../../components/ui/GlassCard/GlassCard';
 import { Button } from '../../components/ui/Button/Button';
+import { GlassSelect } from '../../components/ui/GlassSelect/GlassSelect';
 import { 
-    Search, Filter, ChevronRight, FileText, CheckCircle, 
-    ArrowLeft, Users, Package, LayoutGrid, List 
+    Search, Filter, ChevronRight, ChevronLeft, FileText, CheckCircle, 
+    ArrowLeft, Users, Package, LayoutGrid, List, Layout, Send, Calendar, Play
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useDialog } from '../../contexts/DialogContext';
