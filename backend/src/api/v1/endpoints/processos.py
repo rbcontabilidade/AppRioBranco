@@ -234,28 +234,82 @@ async def _save_steps(processo_id: int, steps: List[RotinaSchema]):
                 res_t = supabase.table("rh_tarefas").upsert(payload).execute()
                 if res_t.data:
                     t_id = res_t.data[0]['id']
-                    # Limpa relações secundárias para reinserir
-                    supabase.table("rh_tarefas_responsaveis").delete().eq("tarefa_id", t_id).execute()
-                    supabase.table("rh_tarefas_checklists").delete().eq("tarefa_id", t_id).execute()
+                    
+                    # 1. Responsáveis: Sincronização Inteligente
+                    # Busca os atuais no banco
+                    res_resp_db = supabase.table("rh_tarefas_responsaveis").select("funcionario_id").eq("tarefa_id", t_id).execute()
+                    db_resp_ids = [r['funcionario_id'] for r in (res_resp_db.data or [])]
+                    
+                    frontend_resp_ids = s.responsible_users or []
+                    
+                    # Adicionar os novos
+                    new_resps = [uid for uid in frontend_resp_ids if uid not in db_resp_ids]
+                    if new_resps:
+                        supabase.table("rh_tarefas_responsaveis").insert([
+                            {"tarefa_id": t_id, "funcionario_id": uid} for uid in new_resps
+                        ]).execute()
+                        
+                    # Remover os que saíram (com segurança)
+                    remove_resps = [uid for uid in db_resp_ids if uid not in frontend_resp_ids]
+                    if remove_resps:
+                        supabase.table("rh_tarefas_responsaveis").delete() \
+                            .eq("tarefa_id", t_id) \
+                            .in_("funcionario_id", remove_resps) \
+                            .execute()
+
+                    # 2. Checklist: Sincronização Inteligente (Evita Restricted Delete Error)
+                    if s.checklist:
+                        # Identifica itens que já têm ID real
+                        items_para_upsert = []
+                        itens_ids_enviados = []
+                        
+                        for c in s.checklist:
+                            c_id = c.id if (isinstance(c.id, int) and c.id < 1000000000) else None
+                            item_payload = {
+                                "tarefa_id": t_id,
+                                "item_texto": c.text
+                            }
+                            if c_id:
+                                item_payload["id"] = c_id
+                                itens_ids_enviados.append(c_id)
+                            
+                            items_para_upsert.append(item_payload)
+                        
+                        if items_para_upsert:
+                            supabase.table("rh_tarefas_checklists").upsert(items_para_upsert).execute()
+                            
+                        # Limpeza de itens órfãos (removidos no frontend)
+                        # Busca todos os itens atuais da tarefa
+                        res_chk_db = supabase.table("rh_tarefas_checklists").select("id").eq("tarefa_id", t_id).execute()
+                        db_chk_ids = [r['id'] for r in (res_chk_db.data or [])]
+                        
+                        ids_para_remover = [id for id in db_chk_ids if id not in itens_ids_enviados]
+                        
+                        for rid in ids_para_remover:
+                            try:
+                                # Tenta deletar. Se falhar por FK (em uso por execuções), silencia.
+                                supabase.table("rh_tarefas_checklists").delete().eq("id", rid).execute()
+                            except:
+                                logger.warning(f"Item de checklist {rid} não pôde ser removido pois está em uso por execuções.")
             else:
                 # É uma tarefa nova (ID temporário vindo do frontend ou None)
                 res_t = supabase.table("rh_tarefas").insert(payload).execute()
                 if res_t.data:
                     t_id = res_t.data[0]['id']
+                    
+                    # Novos responsáveis
+                    if s.responsible_users:
+                        resp_payload = [{"tarefa_id": t_id, "funcionario_id": uid} for uid in s.responsible_users]
+                        supabase.table("rh_tarefas_responsaveis").insert(resp_payload).execute()
+                        
+                    # Novos checklists
+                    if s.checklist:
+                        check_payload = [{"tarefa_id": t_id, "item_texto": c.text} for c in s.checklist]
+                        supabase.table("rh_tarefas_checklists").insert(check_payload).execute()
             
             if t_id:
                 id_map[s.id] = t_id
                 id_map_by_ordem[s.ordem] = t_id
-                
-                # Responsáveis
-                if s.responsible_users:
-                    resp_payload = [{"tarefa_id": t_id, "funcionario_id": uid} for uid in s.responsible_users]
-                    supabase.table("rh_tarefas_responsaveis").insert(resp_payload).execute()
-                    
-                # Checklist
-                if s.checklist:
-                    check_payload = [{"tarefa_id": t_id, "item_texto": c.text} for c in s.checklist]
-                    supabase.table("rh_tarefas_checklists").insert(check_payload).execute()
         except Exception as step_error:
             logger.error(f"Erro ao salvar step {s.nome} no processo {processo_id}: {step_error}")
             raise step_error
