@@ -25,20 +25,152 @@ const Clients = () => {
     // Estados para Seleção em Massa
     const [selectedIds, setSelectedIds] = useState([]);
 
-    // Funções de Seleção
-    const toggleSelectClient = (id) => {
-        setSelectedIds(prev =>
-            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-        );
+    // 1. Filtragem e Ordenação (Calculados a cada render)
+    const filteredClients = clients.filter(c => {
+        if (!searchTerm) return true;
+        const term = searchTerm.toLowerCase();
+        const name = String(c.razao_social || c.nome || '').toLowerCase();
+        const cod = String(c.codigo || '').toLowerCase();
+        const cnpjMatch = String(c.cnpj || '').toLowerCase();
+        return name.includes(term) || cod.includes(term) || cnpjMatch.includes(term);
+    });
+
+    const sortedClients = [...filteredClients].sort((a, b) => {
+        if (sortOrder === 'razao_social-asc') {
+            return String(a.razao_social || a.nome || '').localeCompare(String(b.razao_social || b.nome || ''));
+        } else if (sortOrder === 'razao_social-desc') {
+            return String(b.razao_social || b.nome || '').localeCompare(String(a.razao_social || a.nome || ''));
+        } else if (sortOrder === 'codigo-asc') {
+            return (a.codigo || a.id_interno || a.id || 0) - (b.codigo || b.id_interno || b.id || 0);
+        } else if (sortOrder === 'codigo-desc') {
+            return (b.codigo || b.id_interno || b.id || 0) - (a.codigo || a.id_interno || a.id || 0);
+        } else if (sortOrder === 'status-asc') {
+            return (a.ativo === b.ativo) ? 0 : a.ativo ? -1 : 1;
+        } else if (sortOrder === 'status-desc') {
+            return (a.ativo === b.ativo) ? 0 : a.ativo ? 1 : -1;
+        } else if (sortOrder === 'recent-asc') {
+            return (b.id || b.id_interno || 0) - (a.id || a.id_interno || 0);
+        }
+        return 0;
+    });
+
+    // 2. Definições de Colunas e Dados da Tabela (Após sortedClients)
+    const tableColumns = [
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }} key="select-all-header">
+            <input 
+                type="checkbox" 
+                checked={selectedIds.length === sortedClients.length && sortedClients.length > 0} 
+                onChange={() => {
+                    if (selectedIds.length === sortedClients.length) {
+                        setSelectedIds([]);
+                    } else {
+                        setSelectedIds(sortedClients.map(c => c.id || c.id_interno));
+                    }
+                }}
+                style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+            />
+        </div>,
+        'CÓD', 'RAZÃO SOCIAL', 'CNPJ', 'REGIME', 'DRIVE', 'STATUS', 'AÇÕES'
+    ];
+
+    const formatCnpj = (cnpj) => {
+        if (!cnpj) return 'N/A';
+        let digits = String(cnpj).replace(/\D/g, '');
+        digits = digits.padStart(14, '0');
+        return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2}).*/, '$1.$2.$3/$4-$5');
     };
 
-    const toggleSelectAll = () => {
-        if (selectedIds.length === sortedClients.length) {
-            setSelectedIds([]);
-        } else {
-            setSelectedIds(sortedClients.map(c => c.id || c.id_interno));
-        }
-    };
+    const tableData = sortedClients.map((client) => [
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }} key={`select-${client.id || client.id_interno}`}>
+            <input 
+                type="checkbox" 
+                checked={selectedIds.includes(client.id || client.id_interno)}
+                onChange={() => {
+                    const id = client.id || client.id_interno;
+                    setSelectedIds(prev =>
+                        prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+                    );
+                }}
+                onClick={(e) => e.stopPropagation()}
+                style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+            />
+        </div>,
+        <div style={{ color: 'var(--primary-color, #3b82f6)', fontWeight: '600', whiteSpace: 'nowrap' }}>#{client.codigo || client.id_interno || client.id || '000'}</div>,
+        <div style={{ fontWeight: 'bold', color: 'var(--text-light, #fff)' }}>{client.razao_social || client.nome || 'Sem Nome'}</div>,
+        <div style={{ fontSize: '0.9rem', color: 'var(--text-muted, #9ca3af)', whiteSpace: 'nowrap' }}>{formatCnpj(client.cnpj)}</div>,
+        <div>
+            <span style={{
+                padding: '6px 10px',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                fontWeight: '600',
+                textTransform: 'uppercase',
+                display: 'inline-block',
+                whiteSpace: 'nowrap',
+                backgroundColor: (client.regime_tributario || client.regime) === 'Simples Nacional' ? 'rgba(16, 185, 129, 0.1)' :
+                    (client.regime_tributario || client.regime) === 'Lucro Presumido' ? 'rgba(59, 130, 246, 0.1)' :
+                        (client.regime_tributario || client.regime) === 'Lucro Real' ? 'rgba(236, 72, 153, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                color: (client.regime_tributario || client.regime) === 'Simples Nacional' ? '#10b981' :
+                    (client.regime_tributario || client.regime) === 'Lucro Presumido' ? '#3b82f6' :
+                        (client.regime_tributario || client.regime) === 'Lucro Real' ? '#db2777' : '#f59e0b'
+            }}>
+                {client.regime_tributario || client.regime || 'Não Inf'}
+            </span>
+        </div>,
+        client.drive_link ? (
+            <a href={client.drive_link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-color, #3b82f6)' }}>
+                <ExternalLink size={18} />
+            </a>
+        ) : <span style={{ color: 'var(--text-muted, #9ca3af)' }}>-</span>,
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <label style={{
+                position: 'relative',
+                display: 'inline-block',
+                width: '40px',
+                height: '24px',
+                cursor: 'pointer'
+            }}>
+                <input
+                    type="checkbox"
+                    checked={client.ativo === true}
+                    onChange={() => handleToggleStatus(client)}
+                    style={{ opacity: 0, width: 0, height: 0 }}
+                />
+                <span style={{
+                    position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: client.ativo ? 'var(--success, #10b981)' : '#4b5563',
+                    transition: '.4s', borderRadius: '34px'
+                }}>
+                    <span style={{
+                        position: 'absolute', content: '""', height: '18px', width: '18px',
+                        left: client.ativo ? '18px' : '3px', bottom: '3px',
+                        backgroundColor: 'white', transition: '.4s', borderRadius: '50%'
+                    }} />
+                </span>
+            </label>
+        </div>,
+        <div style={{ display: 'flex', gap: '8px' }}>
+            <Button
+                variant="secondary"
+                size="small"
+                onClick={() => handleEditClient(client)}
+                style={{ padding: '0.4rem 0.6rem' }}
+                title="Editar Cliente"
+            >
+                <Edit2 size={14} />
+            </Button>
+            <Button
+                variant="danger"
+                size="small"
+                onClick={() => handleDeleteClient(client)}
+                style={{ padding: '0.4rem 0.6rem' }}
+                title="Excluir Cliente"
+            >
+                <Trash2 size={14} />
+            </Button>
+        </div>
+    ]);
+
 
     const handleBulkDelete = async () => {
         const isConfirmed = await showConfirm({
@@ -205,140 +337,9 @@ const Clients = () => {
         }
     };
 
-    const formatCnpj = (cnpj) => {
-        if (!cnpj) return 'N/A';
-        let digits = String(cnpj).replace(/\D/g, '');
-        digits = digits.padStart(14, '0');
-        return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2}).*/, '$1.$2.$3/$4-$5');
-    };
 
-    // Colunas fixas visuais da tabela
-    const tableColumns = [
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <input 
-                type="checkbox" 
-                checked={selectedIds.length === sortedClients.length && sortedClients.length > 0} 
-                onChange={toggleSelectAll}
-                style={{ cursor: 'pointer', width: '18px', height: '18px' }}
-            />
-        </div>,
-        'CÓD', 'RAZÃO SOCIAL', 'CNPJ', 'REGIME', 'DRIVE', 'STATUS', 'AÇÕES'
-    ];
 
-    const filteredClients = clients.filter(c => {
-        if (!searchTerm) return true;
-        const term = searchTerm.toLowerCase();
-        const name = String(c.razao_social || c.nome || '').toLowerCase();
-        const cod = String(c.codigo || '').toLowerCase();
-        const cnpjMatch = String(c.cnpj || '').toLowerCase();
-        return name.includes(term) || cod.includes(term) || cnpjMatch.includes(term);
-    });
 
-    const sortedClients = [...filteredClients].sort((a, b) => {
-        if (sortOrder === 'razao_social-asc') {
-            return String(a.razao_social || a.nome || '').localeCompare(String(b.razao_social || b.nome || ''));
-        } else if (sortOrder === 'razao_social-desc') {
-            return String(b.razao_social || b.nome || '').localeCompare(String(a.razao_social || a.nome || ''));
-        } else if (sortOrder === 'codigo-asc') {
-            return (a.codigo || a.id_interno || a.id || 0) - (b.codigo || b.id_interno || b.id || 0);
-        } else if (sortOrder === 'codigo-desc') {
-            return (b.codigo || b.id_interno || b.id || 0) - (a.codigo || a.id_interno || a.id || 0);
-        } else if (sortOrder === 'status-asc') {
-            return (a.ativo === b.ativo) ? 0 : a.ativo ? -1 : 1;
-        } else if (sortOrder === 'status-desc') {
-            return (a.ativo === b.ativo) ? 0 : a.ativo ? 1 : -1;
-        } else if (sortOrder === 'recent-asc') {
-            return (b.id || b.id_interno || 0) - (a.id || a.id_interno || 0);
-        }
-        return 0;
-    });
-
-    // Mapeamento e Transformação dos dados da API para encaixar visualmente no array das tuplas do DataTable
-    const tableData = sortedClients.map((client) => [
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <input 
-                type="checkbox" 
-                checked={selectedIds.includes(client.id || client.id_interno)}
-                onChange={() => toggleSelectClient(client.id || client.id_interno)}
-                onClick={(e) => e.stopPropagation()} // Previne disparar clique na linha se houver
-                style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-            />
-        </div>,
-        <div style={{ color: 'var(--primary-color, #3b82f6)', fontWeight: '600', whiteSpace: 'nowrap' }}>#{client.codigo || client.id_interno || client.id || '000'}</div>,
-        <div style={{ fontWeight: 'bold', color: 'var(--text-light, #fff)' }}>{client.razao_social || client.nome || 'Sem Nome'}</div>,
-        <div style={{ fontSize: '0.9rem', color: 'var(--text-muted, #9ca3af)', whiteSpace: 'nowrap' }}>{formatCnpj(client.cnpj)}</div>,
-        <div>
-            <span style={{
-                padding: '6px 10px',
-                borderRadius: '6px',
-                fontSize: '0.75rem',
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                display: 'inline-block',
-                whiteSpace: 'nowrap',
-                backgroundColor: (client.regime_tributario || client.regime) === 'Simples Nacional' ? 'rgba(16, 185, 129, 0.1)' :
-                    (client.regime_tributario || client.regime) === 'Lucro Presumido' ? 'rgba(59, 130, 246, 0.1)' :
-                        (client.regime_tributario || client.regime) === 'Lucro Real' ? 'rgba(236, 72, 153, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-                color: (client.regime_tributario || client.regime) === 'Simples Nacional' ? '#10b981' :
-                    (client.regime_tributario || client.regime) === 'Lucro Presumido' ? '#3b82f6' :
-                        (client.regime_tributario || client.regime) === 'Lucro Real' ? '#db2777' : '#f59e0b'
-            }}>
-                {client.regime_tributario || client.regime || 'Não Inf'}
-            </span>
-        </div>,
-        client.drive_link ? (
-            <a href={client.drive_link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-color, #3b82f6)' }}>
-                <ExternalLink size={18} />
-            </a>
-        ) : <span style={{ color: 'var(--text-muted, #9ca3af)' }}>-</span>,
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-            <label style={{
-                position: 'relative',
-                display: 'inline-block',
-                width: '40px',
-                height: '24px',
-                cursor: 'pointer'
-            }}>
-                <input
-                    type="checkbox"
-                    checked={client.ativo === true}
-                    onChange={() => handleToggleStatus(client)}
-                    style={{ opacity: 0, width: 0, height: 0 }}
-                />
-                <span style={{
-                    position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: client.ativo ? 'var(--success, #10b981)' : '#4b5563',
-                    transition: '.4s', borderRadius: '34px'
-                }}>
-                    <span style={{
-                        position: 'absolute', content: '""', height: '18px', width: '18px',
-                        left: client.ativo ? '18px' : '3px', bottom: '3px',
-                        backgroundColor: 'white', transition: '.4s', borderRadius: '50%'
-                    }} />
-                </span>
-            </label>
-        </div>,
-        <div style={{ display: 'flex', gap: '8px' }}>
-            <Button
-                variant="secondary"
-                size="small"
-                onClick={() => handleEditClient(client)}
-                style={{ padding: '0.4rem 0.6rem' }}
-                title="Editar Cliente"
-            >
-                <Edit2 size={14} />
-            </Button>
-            <Button
-                variant="danger"
-                size="small"
-                onClick={() => handleDeleteClient(client)}
-                style={{ padding: '0.4rem 0.6rem' }}
-                title="Excluir Cliente"
-            >
-                <Trash2 size={14} />
-            </Button>
-        </div>
-    ]);
 
     const ClientSummaryCards = () => {
         const total = clients.length;
