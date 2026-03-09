@@ -5,7 +5,8 @@ class ClienteCreate(BaseModel):
     cnpj: str
     codigo: str
     regime: str
-    responsavel_fiscal: str | None = None
+    cidade: str = ""
+    estado: str = ""
     rotinas_selecionadas: list = []
     drive_link: str = ""
     inscricao_estadual: str = ""
@@ -30,7 +31,8 @@ class ClienteUpdate(BaseModel):
     razao_social: str | None = None
     cnpj: str | None = None
     regime: str | None = None
-    responsavel_fiscal: str | None = None
+    cidade: str | None = None
+    estado: str | None = None
     rotinas_selecionadas: list | None = None
     drive_link: str | None = None
     codigo: str | None = None

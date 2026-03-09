@@ -25,7 +25,8 @@ export const ClientForm = ({ initialData, onSuccess, onCancel }) => {
         cnpj: '',
         codigo: '',
         regime: '',
-        responsavel_fiscal: '',
+        cidade: '',
+        estado: '',
         data_abertura: '',
         tipo_empresa: '',
         contato_nome: '',
@@ -106,7 +107,8 @@ export const ClientForm = ({ initialData, onSuccess, onCancel }) => {
                 cnpj: initialData.cnpj || '',
                 codigo: initialData.codigo || '',
                 regime: initialData.regime || '',
-                responsavel_fiscal: initialData.responsavel_fiscal || '',
+                cidade: initialData.cidade || '',
+                estado: initialData.estado || '',
                 data_abertura: initialData.data_abertura || '',
                 tipo_empresa: initialData.tipo_empresa || '',
                 contato_nome: initialData.contato_nome || '',
@@ -295,7 +297,43 @@ export const ClientForm = ({ initialData, onSuccess, onCancel }) => {
                         <GlassInput name="regime" label="Regime Tributário" value={formData.regime} onChange={handleChange} placeholder="Ex: Simples Nacional, Lucro Real" />
                         <GlassInput name="tipo_empresa" label="Tipo Jurídico" value={formData.tipo_empresa} onChange={handleChange} placeholder="Ex: ME, EPP, LTDA" />
                         <GlassInput name="data_abertura" label="Data de Abertura" type="date" value={formData.data_abertura} onChange={handleChange} />
-                        <GlassInput name="responsavel_fiscal" label="Responsável Fiscal" value={formData.responsavel_fiscal} onChange={handleChange} placeholder="Nome do Contador Responsável" />
+                        <GlassInput name="cidade" label="Cidade" value={formData.cidade} onChange={handleChange} placeholder="Ex: Rio de Janeiro" />
+                        <GlassSelect 
+                            name="estado" 
+                            label="Estado (UF)" 
+                            value={formData.estado} 
+                            onChange={handleChange} 
+                            options={[
+                                { value: '', label: 'Selecione...' },
+                                { value: 'AC', label: 'Acre' },
+                                { value: 'AL', label: 'Alagoas' },
+                                { value: 'AP', label: 'Amapá' },
+                                { value: 'AM', label: 'Amazonas' },
+                                { value: 'BA', label: 'Bahia' },
+                                { value: 'CE', label: 'Ceará' },
+                                { value: 'DF', label: 'Distrito Federal' },
+                                { value: 'ES', label: 'Espírito Santo' },
+                                { value: 'GO', label: 'Goiás' },
+                                { value: 'MA', label: 'Maranhão' },
+                                { value: 'MT', label: 'Mato Grosso' },
+                                { value: 'MS', label: 'Mato Grosso do Sul' },
+                                { value: 'MG', label: 'Minas Gerais' },
+                                { value: 'PA', label: 'Pará' },
+                                { value: 'PB', label: 'Paraíba' },
+                                { value: 'PR', label: 'Paraná' },
+                                { value: 'PE', label: 'Pernambuco' },
+                                { value: 'PI', label: 'Piauí' },
+                                { value: 'RJ', label: 'Rio de Janeiro' },
+                                { value: 'RN', label: 'Rio Grande do Norte' },
+                                { value: 'RS', label: 'Rio Grande do Sul' },
+                                { value: 'RO', label: 'Rondônia' },
+                                { value: 'RR', label: 'Roraima' },
+                                { value: 'SC', label: 'Santa Catarina' },
+                                { value: 'SP', label: 'São Paulo' },
+                                { value: 'SE', label: 'Sergipe' },
+                                { value: 'TO', label: 'Tocantins' }
+                            ]} 
+                        />
                         <div style={{ gridColumn: 'span 2' }}>
                             <GlassSelect name="status" label="Status do Cliente" value={formData.status} onChange={handleChange} options={[{ value: 'ativo', label: 'Ativo' }, { value: 'inativo', label: 'Inativo' }]} required />
                         </div>

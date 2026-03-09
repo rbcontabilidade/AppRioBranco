@@ -10,7 +10,7 @@ class ClienteCRUD:
     def _process_data(data: dict):
         # Campos que devem aceitar "" se forem string (evita erro 23502 NOT NULL)
         # Outros campos (como datas) devem ser None se vazios (evita erro 22007 invalid syntax)
-        string_fields = ["razao_social", "cnpj", "codigo", "regime"]
+        string_fields = ["razao_social", "cnpj", "codigo", "regime", "cidade", "estado"]
         return {k: (None if v == "" and k not in string_fields else v) for k, v in data.items()}
 
     @staticmethod
