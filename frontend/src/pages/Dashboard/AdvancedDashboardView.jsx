@@ -78,6 +78,7 @@ const AdvancedDashboardView = ({ tasks, onCompleteTask, isAdmin }) => {
                 currentTask,
                 completedTasks: completed,
                 totalTasks: c.tasks.length,
+                driveLink: c.drive_link
             };
         }).sort((a, b) => a.name.localeCompare(b.name));
     }, [activeProcess]);
