@@ -101,24 +101,47 @@ const Clients = () => {
         <div style={{ fontSize: '0.85rem', color: 'var(--text-main, #e5e7eb)' }}>
             {client.cidade ? `${client.cidade}${client.estado ? ' - ' + client.estado : ''}` : (client.estado || '-')}
         </div>,
-        <div>
-            <span style={{
-                padding: '6px 10px',
-                borderRadius: '6px',
-                fontSize: '0.75rem',
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                display: 'inline-block',
-                whiteSpace: 'nowrap',
-                backgroundColor: (client.regime_tributario || client.regime) === 'Simples Nacional' ? 'rgba(16, 185, 129, 0.1)' :
-                    (client.regime_tributario || client.regime) === 'Lucro Presumido' ? 'rgba(59, 130, 246, 0.1)' :
-                        (client.regime_tributario || client.regime) === 'Lucro Real' ? 'rgba(236, 72, 153, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-                color: (client.regime_tributario || client.regime) === 'Simples Nacional' ? '#10b981' :
-                    (client.regime_tributario || client.regime) === 'Lucro Presumido' ? '#3b82f6' :
-                        (client.regime_tributario || client.regime) === 'Lucro Real' ? '#db2777' : '#f59e0b'
-            }}>
-                {client.regime_tributario || client.regime || 'Não Inf'}
-            </span>
+        <div key={`regime-${client.id || client.id_interno}`}>
+            {(() => {
+                const regime = (client.regime_tributario || client.regime || 'Não Inf').trim();
+                const regimeUpper = regime.toUpperCase();
+                
+                let colors = {
+                    bg: 'rgba(100, 116, 139, 0.1)', // Default (Slate/Gray)
+                    text: '#94a3b8'
+                };
+
+                if (regimeUpper.includes('SIMPLES NACIONAL')) {
+                    colors = { bg: 'rgba(16, 185, 129, 0.1)', text: '#10b981' }; // Emerald
+                } else if (regimeUpper.includes('MEI')) {
+                    colors = { bg: 'rgba(245, 158, 11, 0.1)', text: '#f59e0b' }; // Amber
+                } else if (regimeUpper.includes('LUCRO PRESUMIDO')) {
+                    colors = { bg: 'rgba(99, 102, 241, 0.1)', text: '#6366f1' }; // Indigo
+                } else if (regimeUpper.includes('LUCRO REAL')) {
+                    colors = { bg: 'rgba(219, 39, 119, 0.1)', text: '#db2777' }; // Pink/Fuchsia
+                } else if (regimeUpper.includes('NORMAL')) {
+                    colors = { bg: 'rgba(6, 182, 212, 0.1)', text: '#06b6d4' }; // Cyan
+                } else if (regimeUpper.includes('SEM MOVIMENTO')) {
+                    colors = { bg: 'rgba(71, 85, 105, 0.1)', text: '#94a3b8' }; // Slate
+                }
+
+                return (
+                    <span style={{
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        fontSize: '0.75rem',
+                        fontWeight: '700',
+                        textTransform: 'uppercase',
+                        display: 'inline-block',
+                        whiteSpace: 'nowrap',
+                        backgroundColor: colors.bg,
+                        color: colors.text,
+                        border: `1px solid ${colors.text}33` // Borda sutil (20% opacidade do texto)
+                    }}>
+                        {regime}
+                    </span>
+                );
+            })()}
         </div>,
         client.drive_link ? (
             <a href={client.drive_link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary-color, #3b82f6)' }}>
