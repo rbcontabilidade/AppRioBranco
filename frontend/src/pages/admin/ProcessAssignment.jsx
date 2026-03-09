@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GlassCard } from '../../components/ui/GlassCard/GlassCard';
 import { Button } from '../../components/ui/Button/Button';
-import {
-    Search, Filter, Play, CheckCircle,
-    ChevronRight, ChevronLeft, Layout,
-    Users, Send, FileText, Calendar, ArrowLeft
+import { 
+    Search, Filter, ChevronRight, FileText, CheckCircle, 
+    ArrowLeft, Users, Package, LayoutGrid, List 
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useDialog } from '../../contexts/DialogContext';
@@ -29,6 +28,9 @@ export const ProcessAssignment = () => {
     // Filtros
     const [searchTerm, setSearchTerm] = useState('');
     const [templateSearchTerm, setTemplateSearchTerm] = useState('');
+    const [selectedFrequency, setSelectedFrequency] = useState('');
+    const [selectedSector, setSelectedSector] = useState('');
+    const [viewMode, setViewMode] = useState('grid'); // 'grid' ou 'list'
     const [selectedRegime, setSelectedRegime] = useState('');
 
     useEffect(() => {
@@ -209,10 +211,17 @@ export const ProcessAssignment = () => {
     );
 
     const renderStep1 = () => {
-        const filteredTemplates = templates.filter(t => 
-            (t.nome || '').toLowerCase().includes(templateSearchTerm.toLowerCase()) ||
-            (t.descricao || '').toLowerCase().includes(templateSearchTerm.toLowerCase())
-        );
+        const filteredTemplates = templates.filter(t => {
+            const matchesSearch = (t.nome || '').toLowerCase().includes(templateSearchTerm.toLowerCase()) ||
+                                 (t.descricao || '').toLowerCase().includes(templateSearchTerm.toLowerCase());
+            const matchesFrequency = !selectedFrequency || t.frequencia === selectedFrequency;
+            const matchesSector = !selectedSector || t.setor === selectedSector;
+            return matchesSearch && matchesFrequency && matchesSector;
+        });
+
+        // Extrair todas as frequências e setores únicos disponíveis para os filtros
+        const frequencies = [...new Set(templates.map(t => t.frequencia).filter(Boolean))];
+        const sectors = [...new Set(templates.map(t => t.setor).filter(Boolean))];
 
         return (
             <div style={{ animation: 'slideRight 0.4s ease-out' }}>
@@ -221,42 +230,98 @@ export const ProcessAssignment = () => {
                     <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>Localize o processo ideal para iniciar o lançamento em lote</p>
                 </div>
 
-                <GlassCard style={{ padding: '16px', marginBottom: '32px', maxWidth: '600px', margin: '0 auto 40px auto', position: 'relative' }}>
-                    <Search size={20} style={{ position: 'absolute', left: '24px', top: '18px', color: 'var(--primary-color)' }} />
-                    <input
-                        className="glass-input"
-                        placeholder="Buscar por nome ou descrição do processo..."
-                        value={templateSearchTerm}
-                        onChange={(e) => setTemplateSearchTerm(e.target.value)}
-                        style={{ paddingLeft: '56px', width: '100%', height: '52px', fontSize: '1rem', borderRadius: '14px' }}
-                    />
+                <div style={{ maxWidth: '1000px', margin: '0 auto 40px auto' }}>
+                    {/* Barra de Busca e Filtros */}
+                    <div style={{ display: 'flex', gap: '16px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        <GlassCard style={{ flex: 1, minWidth: '300px', padding: '0', position: 'relative', height: '52px', display: 'flex', alignItems: 'center' }}>
+                            <Search size={20} style={{ marginLeft: '16px', color: 'var(--primary-color)', flexShrink: 0 }} />
+                            <input
+                                className="glass-input"
+                                placeholder="Buscar processo..."
+                                value={templateSearchTerm}
+                                onChange={(e) => setTemplateSearchTerm(e.target.value)}
+                                style={{ border: 'none', background: 'transparent', height: '100%', width: '100%', paddingLeft: '12px', fontSize: '1rem' }}
+                            />
+                        </GlassCard>
+
+                        <GlassSelect
+                            value={selectedFrequency}
+                            onChange={(e) => setSelectedFrequency(e.target.value)}
+                            style={{ minWidth: '160px', height: '52px' }}
+                        >
+                            <option value="">Frequência</option>
+                            {frequencies.map(f => <option key={f} value={f}>{f}</option>)}
+                        </GlassSelect>
+
+                        <GlassSelect
+                            value={selectedSector}
+                            onChange={(e) => setSelectedSector(e.target.value)}
+                            style={{ minWidth: '160px', height: '52px' }}
+                        >
+                            <option value="">Todos os Setores</option>
+                            {sectors.map(s => <option key={s} value={s}>{s}</option>)}
+                        </GlassSelect>
+
+                        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '4px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <button 
+                                onClick={() => setViewMode('grid')}
+                                style={{ 
+                                    padding: '8px 12px', borderRadius: '8px', border: 'none', 
+                                    background: viewMode === 'grid' ? 'var(--primary-color)' : 'transparent',
+                                    color: viewMode === 'grid' ? '#fff' : 'var(--text-muted)',
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', transition: '0.2s'
+                                }}
+                            >
+                                <LayoutGrid size={18} />
+                            </button>
+                            <button 
+                                onClick={() => setViewMode('list')}
+                                style={{ 
+                                    padding: '8px 12px', borderRadius: '8px', border: 'none', 
+                                    background: viewMode === 'list' ? 'var(--primary-color)' : 'transparent',
+                                    color: viewMode === 'list' ? '#fff' : 'var(--text-muted)',
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', transition: '0.2s'
+                                }}
+                            >
+                                <List size={18} />
+                            </button>
+                        </div>
+                    </div>
+
                     {templateSearchTerm && (
-                        <div style={{ position: 'absolute', right: '40px', top: '24px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600' }}>
-                            {filteredTemplates.length} ENCONTRADOS
+                        <div style={{ marginBottom: '16px', fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: '600', paddingLeft: '4px' }}>
+                            {filteredTemplates.length} PROCESSOS ENCONTRADOS
                         </div>
                     )}
-                </GlassCard>
+                </div>
 
-                <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', 
-                    gap: '24px',
-                    maxHeight: '600px',
-                    overflowY: 'auto',
-                    padding: '4px',
-                    pr: '8px'
-                }}>
-                    {loadingData ? (
-                        Array(6).fill(0).map((_, i) => (
+                {loadingData ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+                        {Array(6).fill(0).map((_, i) => (
                             <GlassCard key={i} style={{ height: '160px', opacity: 0.5 }} className="skeleton-loading" />
-                        ))
-                    ) : filteredTemplates.length === 0 ? (
-                        <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
-                            <Filter size={48} style={{ opacity: 0.2, marginBottom: '16px' }} />
-                            <p>Nenhum processo encontrado com esse termo.</p>
-                        </div>
-                    ) : (
-                        filteredTemplates.map(t => (
+                        ))}
+                    </div>
+                ) : filteredTemplates.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--text-muted)' }}>
+                        <Filter size={64} style={{ opacity: 0.2, marginBottom: '20px' }} />
+                        <h3 style={{ color: 'var(--text-main)', marginBottom: '8px' }}>Nenhum processo filtrado</h3>
+                        <p>Tente ajustar os termos de busca ou filtros de setor/frequência.</p>
+                        <Button 
+                            variant="secondary" 
+                            onClick={() => { setTemplateSearchTerm(''); setSelectedFrequency(''); setSelectedSector(''); }}
+                            style={{ marginTop: '20px' }}
+                        >
+                            Limpar Tudo
+                        </Button>
+                    </div>
+                ) : viewMode === 'grid' ? (
+                    <div style={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', 
+                        gap: '24px',
+                        padding: '4px'
+                    }}>
+                        {filteredTemplates.map(t => (
                             <GlassCard
                                 key={t.id}
                                 onClick={() => handleSelectTemplate(t)}
@@ -270,19 +335,30 @@ export const ProcessAssignment = () => {
                             >
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <div style={{ 
-                                        p: '10px', background: 'rgba(59, 130, 246, 0.12)', 
+                                        padding: '10px', background: 'rgba(59, 130, 246, 0.12)', 
                                         borderRadius: '10px', color: 'var(--primary-color)',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center'
                                     }}>
                                         <FileText size={22} />
                                     </div>
-                                    <span style={{ 
-                                        fontSize: '0.7rem', fontWeight: '800', textTransform: 'uppercase', 
-                                        background: 'rgba(255,255,255,0.05)', padding: '4px 10px', borderRadius: '20px',
-                                        color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)'
-                                    }}>
-                                        {t.frequencia || 'Mensal'}
-                                    </span>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        {t.setor && (
+                                            <span style={{ 
+                                                fontSize: '0.65rem', fontWeight: '800', textTransform: 'uppercase', 
+                                                background: 'rgba(52, 211, 153, 0.1)', padding: '4px 8px', borderRadius: '6px',
+                                                color: '#34d399', border: '1px solid rgba(52, 211, 153, 0.2)'
+                                            }}>
+                                                {t.setor}
+                                            </span>
+                                        )}
+                                        <span style={{ 
+                                            fontSize: '0.65rem', fontWeight: '800', textTransform: 'uppercase', 
+                                            background: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: '6px',
+                                            color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)'
+                                        }}>
+                                            {t.frequencia || 'Mensal'}
+                                        </span>
+                                    </div>
                                 </div>
                                 <div>
                                     <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#fff', marginBottom: '6px' }}>{t.nome}</h3>
@@ -304,9 +380,48 @@ export const ProcessAssignment = () => {
                                     <ChevronRight size={18} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
                                 </div>
                             </GlassCard>
-                        ))
-                    )}
-                </div>
+                        ))}
+                    </div>
+                ) : (
+                    /* Visualização em Lista */
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        {filteredTemplates.map(t => (
+                            <GlassCard
+                                key={t.id}
+                                onClick={() => handleSelectTemplate(t)}
+                                style={{
+                                    padding: '16px 24px', cursor: 'pointer', transition: 'all 0.2s',
+                                    border: selectedTemplate?.id === t.id ? '2px solid var(--primary-color)' : '1px solid rgba(255,255,255,0.05)',
+                                    display: 'flex', alignItems: 'center', gap: '20px',
+                                    background: 'rgba(255,255,255,0.02)'
+                                }}
+                                className="hover-card"
+                            >
+                                <div style={{ 
+                                    padding: '8px', background: 'rgba(59, 130, 246, 0.1)', 
+                                    borderRadius: '8px', color: 'var(--primary-color)'
+                                }}>
+                                    <FileText size={18} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <h3 style={{ fontSize: '1rem', fontWeight: '700', color: '#fff' }}>{t.nome}</h3>
+                                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '400px' }}>
+                                        {t.descricao || 'Sem descrição.'}
+                                    </p>
+                                </div>
+                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.05)', padding: '4px 10px', borderRadius: '12px' }}>
+                                        {t.frequencia}
+                                    </span>
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--primary-color)', fontWeight: '600' }}>
+                                        {t.qtd_rotinas || 0} rotinas
+                                    </span>
+                                    <ChevronRight size={18} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
+                                </div>
+                            </GlassCard>
+                        ))}
+                    </div>
+                )}
             </div>
         );
     };
