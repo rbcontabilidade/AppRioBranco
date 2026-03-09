@@ -36,7 +36,7 @@ async def criar_processo(payload: ProcessoCompletoSchema):
     logger.info(f"Recebendo payload para novo processo: {payload.dict()}")
     try:
         # 1. Cria Processo Pai
-        res_p = supabase.table("rh_processos").insert({
+        res_p = supabase_admin.table("rh_processos").insert({
             "nome": payload.nome,
             "descricao": payload.descricao,
             "frequencia": payload.frequencia,
@@ -45,7 +45,8 @@ async def criar_processo(payload: ProcessoCompletoSchema):
         }).execute()
         
         if not res_p.data:
-            raise HTTPException(status_code=400, detail="Erro ao criar processo")
+             logger.error(f"Erro ao inserir rh_processos: {getattr(res_p, 'error', 'Erro desconhecido')}")
+             raise HTTPException(status_code=400, detail="Erro ao criar processo no banco")
             
         processo_id = res_p.data[0]['id']
         
@@ -53,6 +54,8 @@ async def criar_processo(payload: ProcessoCompletoSchema):
         await _save_steps(processo_id, payload.steps)
         
         return {"message": "Processo criado com sucesso", "id": processo_id}
+    except HTTPException as he:
+        raise he
     except Exception as e:
         logger.error(f"Erro ao criar processo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -71,19 +74,34 @@ async def atualizar_processo(id: int, payload: ProcessoCompletoSchema):
         if payload.mes_referencia:
             update_data["mes_referencia"] = payload.mes_referencia
             
-        supabase.table("rh_processos").update(update_data).eq("id", id).execute()
+        res_p = supabase_admin.table("rh_processos").update(update_data).eq("id", id).execute()
+        if not res_p.data:
+             logger.error(f"Erro ao atualizar rh_processos: {getattr(res_p, 'error', 'Processo não encontrado')}")
+             raise HTTPException(status_code=404, detail="Processo não encontrado para atualizar")
         
-        # 2. Desativa todas as tarefas atuais deste processo (Soft Delete)
-        # Isso garante que tarefas removidas no frontend fiquem inativas no banco
-        supabase.table("rh_tarefas").update({"is_active": False}).eq("processo_id", id).execute()
+        # 2. Desativa todas as tarefas atuais deste processo (Soft Delete) que não vieram no payload
+        # No lugar de desativar TUDO, vamos desativar apenas as que NÃO estão no payload e que são deste processo
+        ids_enviados = []
+        for s in payload.steps:
+            curr_id = s.id
+            if curr_id is not None and isinstance(curr_id, int) and curr_id < 1000000000:
+                ids_enviados.append(int(curr_id))
+        
+        query_deactivate = supabase_admin.table("rh_tarefas").update({"is_active": False}).eq("processo_id", id)
+        if ids_enviados:
+            query_deactivate = query_deactivate.not_.in_("id", ids_enviados)
+        
+        query_deactivate.execute()
         
         # 3. Recria ou Reativa as Tarefas
         await _save_steps(id, payload.steps)
         
         return {"message": "Processo atualizado com sucesso"}
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        logger.error(f"Erro ao atualizar processo: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Erro ao atualizar processo {id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro no servidor: {str(e)}")
 
 @router.delete("/{id}")
 async def excluir_processo(id: int):
@@ -212,8 +230,9 @@ async def _save_steps(processo_id: int, steps: List[RotinaSchema]):
     id_map_by_ordem = {} # Chave: número de ordem -> ID real no banco
     
     for s in steps:
+        curr_step_id = s.id
         # Verifica se é um ID real do banco (Inteiros pequenos) ou gerado pelo frontend (Date.now())
-        is_real_id = isinstance(s.id, int) and s.id is not None and s.id < 1000000000
+        is_real_id = curr_step_id is not None and isinstance(curr_step_id, int) and curr_step_id < 1000000000
         
         payload = {
             "processo_id": processo_id,
@@ -231,13 +250,13 @@ async def _save_steps(processo_id: int, steps: List[RotinaSchema]):
         try:
             if is_real_id:
                 payload["id"] = s.id
-                res_t = supabase.table("rh_tarefas").upsert(payload).execute()
+                res_t = supabase_admin.table("rh_tarefas").upsert(payload).execute()
                 if res_t.data:
                     t_id = res_t.data[0]['id']
                     
                     # 1. Responsáveis: Sincronização Inteligente
                     # Busca os atuais no banco
-                    res_resp_db = supabase.table("rh_tarefas_responsaveis").select("funcionario_id").eq("tarefa_id", t_id).execute()
+                    res_resp_db = supabase_admin.table("rh_tarefas_responsaveis").select("funcionario_id").eq("tarefa_id", t_id).execute()
                     db_resp_ids = [r['funcionario_id'] for r in (res_resp_db.data or [])]
                     
                     frontend_resp_ids = s.responsible_users or []
@@ -245,14 +264,14 @@ async def _save_steps(processo_id: int, steps: List[RotinaSchema]):
                     # Adicionar os novos
                     new_resps = [uid for uid in frontend_resp_ids if uid not in db_resp_ids]
                     if new_resps:
-                        supabase.table("rh_tarefas_responsaveis").insert([
+                        supabase_admin.table("rh_tarefas_responsaveis").insert([
                             {"tarefa_id": t_id, "funcionario_id": uid} for uid in new_resps
                         ]).execute()
                         
                     # Remover os que saíram (com segurança)
                     remove_resps = [uid for uid in db_resp_ids if uid not in frontend_resp_ids]
                     if remove_resps:
-                        supabase.table("rh_tarefas_responsaveis").delete() \
+                        supabase_admin.table("rh_tarefas_responsaveis").delete() \
                             .eq("tarefa_id", t_id) \
                             .in_("funcionario_id", remove_resps) \
                             .execute()
@@ -264,23 +283,27 @@ async def _save_steps(processo_id: int, steps: List[RotinaSchema]):
                         itens_ids_enviados = []
                         
                         for c in s.checklist:
-                            c_id = c.id if (isinstance(c.id, int) and c.id < 1000000000) else None
+                            curr_c_id = c.id
+                            c_id_real = None
+                            if curr_c_id is not None and isinstance(curr_c_id, int) and curr_c_id < 1000000000:
+                                c_id_real = int(curr_c_id)
+                            
                             item_payload = {
                                 "tarefa_id": t_id,
                                 "item_texto": c.text
                             }
-                            if c_id:
-                                item_payload["id"] = c_id
-                                itens_ids_enviados.append(c_id)
+                            if c_id_real:
+                                item_payload["id"] = c_id_real
+                                itens_ids_enviados.append(c_id_real)
                             
                             items_para_upsert.append(item_payload)
                         
                         if items_para_upsert:
-                            supabase.table("rh_tarefas_checklists").upsert(items_para_upsert).execute()
+                            supabase_admin.table("rh_tarefas_checklists").upsert(items_para_upsert).execute()
                             
                         # Limpeza de itens órfãos (removidos no frontend)
                         # Busca todos os itens atuais da tarefa
-                        res_chk_db = supabase.table("rh_tarefas_checklists").select("id").eq("tarefa_id", t_id).execute()
+                        res_chk_db = supabase_admin.table("rh_tarefas_checklists").select("id").eq("tarefa_id", t_id).execute()
                         db_chk_ids = [r['id'] for r in (res_chk_db.data or [])]
                         
                         ids_para_remover = [id for id in db_chk_ids if id not in itens_ids_enviados]
@@ -288,24 +311,25 @@ async def _save_steps(processo_id: int, steps: List[RotinaSchema]):
                         for rid in ids_para_remover:
                             try:
                                 # Tenta deletar. Se falhar por FK (em uso por execuções), silencia.
-                                supabase.table("rh_tarefas_checklists").delete().eq("id", rid).execute()
-                            except:
-                                logger.warning(f"Item de checklist {rid} não pôde ser removido pois está em uso por execuções.")
+                                # Usamos supabase_admin aqui também para consistência
+                                supabase_admin.table("rh_tarefas_checklists").delete().eq("id", rid).execute()
+                            except Exception as del_err:
+                                logger.warning(f"Item de checklist {rid} não pôde ser removido: {del_err}")
             else:
                 # É uma tarefa nova (ID temporário vindo do frontend ou None)
-                res_t = supabase.table("rh_tarefas").insert(payload).execute()
+                res_t = supabase_admin.table("rh_tarefas").insert(payload).execute()
                 if res_t.data:
                     t_id = res_t.data[0]['id']
                     
                     # Novos responsáveis
                     if s.responsible_users:
                         resp_payload = [{"tarefa_id": t_id, "funcionario_id": uid} for uid in s.responsible_users]
-                        supabase.table("rh_tarefas_responsaveis").insert(resp_payload).execute()
+                        supabase_admin.table("rh_tarefas_responsaveis").insert(resp_payload).execute()
                         
                     # Novos checklists
                     if s.checklist:
                         check_payload = [{"tarefa_id": t_id, "item_texto": c.text} for c in s.checklist]
-                        supabase.table("rh_tarefas_checklists").insert(check_payload).execute()
+                        supabase_admin.table("rh_tarefas_checklists").insert(check_payload).execute()
             
             if t_id:
                 id_map[s.id] = t_id
@@ -333,7 +357,7 @@ async def _save_steps(processo_id: int, steps: List[RotinaSchema]):
             dep_task_db_id = id_map_by_ordem.get(s.ordem - 1)
 
         if dep_task_db_id:
-            supabase.table("rh_tarefas").update({"dependente_de_id": dep_task_db_id}).eq("id", current_task_db_id).execute()
+            supabase_admin.table("rh_tarefas").update({"dependente_de_id": dep_task_db_id}).eq("id", current_task_db_id).execute()
 
 @router.post("/clientes/{client_id}/{template_id}")
 async def lancar_processo_cliente(client_id: int, template_id: int):
