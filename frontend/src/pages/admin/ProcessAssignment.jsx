@@ -38,23 +38,34 @@ export const ProcessAssignment = () => {
         const loadInitialData = async () => {
             try {
                 setLoadingData(true);
-                const [resProcessos, resClientes] = await Promise.all([
-                    api.get('/processos'),
-                    api.get('/clientes')
-                ]);
-                setTemplates(resProcessos.data?.processos || resProcessos.data || []);
-                setClients(resClientes.data?.clientes || resClientes.data || []);
+                // Fetch templates
+                try {
+                    const response = await api.get('/processos');
+                    const arrayDeProcessos = response.data?.processos || response.data || [];
+                    setTemplates(arrayDeProcessos);
+                } catch (error) {
+                    console.error("Erro ao buscar processos:", error);
+                    // Fallback para demonstração se a API falhar
+                    setTemplates([
+                        { id: 1, nome: 'Fechamento Fiscal Mensal', descricao: 'Apuracao completa de impostos e entrega de guias.', qtd_rotinas: 8, frequencia: 'Mensal', setores: ['Fiscal'] },
+                        { id: 2, nome: 'Folha de Pagamento', descricao: 'Geracao de holerites, encargos e social.', qtd_rotinas: 12, frequencia: 'Mensal', setores: ['DP'] }
+                    ]);
+                }
+
+                // Fetch clients
+                try {
+                    const resClientes = await api.get('/clientes');
+                    setClients(resClientes.data?.clientes || resClientes.data || []);
+                } catch (error) {
+                    console.error("Erro ao buscar clientes:", error);
+                    // Fallback Mocks
+                    setClients([
+                        { id: 101, razao_social: 'Exemplo Empresa LTDA', cnpj: '12.345.678/0001-90', regime: 'Simples Nacional' },
+                        { id: 102, razao_social: 'Comercio de Peças SA', cnpj: '98.765.432/0001-10', regime: 'Lucro Presumido' },
+                    ]);
+                }
             } catch (error) {
-                console.error("Erro ao carregar dados:", error);
-                // Fallback Mocks
-                setTemplates([
-                    { id: 1, nome: 'Fechamento Fiscal Mensal', descricao: 'Apuracao completa de impostos e entrega de guias.', qtd_rotinas: 8, frequencia: 'Mensal' },
-                    { id: 2, nome: 'Folha de Pagamento', descricao: 'Geracao de holerites, encargos e social.', qtd_rotinas: 12, frequencia: 'Mensal' }
-                ]);
-                setClients([
-                    { id: 101, razao_social: 'Exemplo Empresa LTDA', cnpj: '12.345.678/0001-90', regime: 'Simples Nacional' },
-                    { id: 102, razao_social: 'Comercio de Peças SA', cnpj: '98.765.432/0001-10', regime: 'Lucro Presumido' },
-                ]);
+                console.error("Erro geral ao carregar dados iniciais:", error);
             } finally {
                 setLoadingData(false);
             }
@@ -216,13 +227,15 @@ export const ProcessAssignment = () => {
             const matchesSearch = (t.nome || '').toLowerCase().includes(templateSearchTerm.toLowerCase()) ||
                                  (t.descricao || '').toLowerCase().includes(templateSearchTerm.toLowerCase());
             const matchesFrequency = !selectedFrequency || t.frequencia === selectedFrequency;
-            const matchesSector = !selectedSector || t.setor === selectedSector;
+            const matchesSector = !selectedSector || (t.setores || []).includes(selectedSector);
             return matchesSearch && matchesFrequency && matchesSector;
         });
 
         // Extrair todas as frequências e setores únicos disponíveis para os filtros
-        const frequencies = [...new Set(templates.map(t => t.frequencia).filter(Boolean))];
-        const sectors = [...new Set(templates.map(t => t.setor).filter(Boolean))];
+        const frequencies = [...new Set(templates.map(t => t.frequencia).filter(Boolean))].sort();
+        const sectorsSet = new Set();
+        templates.forEach(t => (t.setores || []).forEach(s => sectorsSet.add(s)));
+        const sectors = Array.from(sectorsSet).sort();
 
         return (
             <div style={{ animation: 'slideRight 0.4s ease-out' }}>

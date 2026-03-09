@@ -30,6 +30,7 @@ export const GlassSelect = forwardRef(({
                         {opt.label}
                     </option>
                 ))}
+                {children}
             </select>
         </div>
     );
