@@ -154,11 +154,18 @@ export const ProcessAssignment = () => {
                 remover: toRemove.length
             });
 
+            // Função auxiliar para sleep
+            const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
             // Função auxiliar para processar em chunks
             const processInChunks = async (items, action, typeLabel) => {
-                const chunkSize = 5; // Processa 5 por vez para não estourar o banco/conexões
+                const chunkSize = 2; // Reduzido de 5 para 2 para máxima estabilidade
                 for (let i = 0; i < items.length; i += chunkSize) {
                     const chunk = items.slice(i, i + chunkSize);
+                    
+                    // Pequeno delay entre lotes para o servidor respirar
+                    if (i > 0) await sleep(500);
+
                     await Promise.all(chunk.map(async (clientId) => {
                         const url = `/processos/clientes/${clientId}/${selectedTemplate.id}`;
                         setUploadStatus(`${typeLabel} cliente ${completedOperations + 1} de ${totalOperations}...`);
