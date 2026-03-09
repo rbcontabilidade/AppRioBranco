@@ -1,5 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import Layout from './components/layout/Layout';
 import PrivateRoute from './components/layout/PrivateRoute';
 // Login permanece com import estático — é a primeira tela, não pode ser lazy
@@ -99,6 +100,7 @@ const App = () => {
                     <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
             </Suspense>
+            <Analytics />
         </BrowserRouter>
     );
 };
