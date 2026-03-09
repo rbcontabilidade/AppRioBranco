@@ -10,6 +10,7 @@ export const GlassSelect = forwardRef(({
     options = [],
     className = '',
     wrapperClassName = '',
+    children,
     ...props
 }, ref) => {
 
