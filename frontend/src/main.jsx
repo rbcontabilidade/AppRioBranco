@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles/variables.css';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 import { AuthProvider } from './contexts/AuthContext';
 import { DialogProvider } from './contexts/DialogContext';
@@ -18,6 +19,7 @@ if (container) {
                     <GlobalDialog />
                     <Toast />
                     <App />
+                    <SpeedInsights />
                 </DialogProvider>
             </AuthProvider>
         </React.StrictMode>
