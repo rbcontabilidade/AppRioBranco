@@ -22,6 +22,63 @@ const Clients = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedClient, setSelectedClient] = useState(null); // null = Modo Criar
 
+    // Estados para Seleção em Massa
+    const [selectedIds, setSelectedIds] = useState([]);
+
+    // Funções de Seleção
+    const toggleSelectClient = (id) => {
+        setSelectedIds(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.length === sortedClients.length) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(sortedClients.map(c => c.id || c.id_interno));
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        const isConfirmed = await showConfirm({
+            title: 'Excluir Selecionados',
+            message: `Deseja excluir permanentemente os ${selectedIds.length} clientes selecionados?`,
+            confirmText: 'Excluir Todos',
+            variant: 'danger'
+        });
+
+        if (!isConfirmed) return;
+
+        setLoading(true);
+        try {
+            await Promise.all(selectedIds.map(id => api.delete(`/clientes/${id}`)));
+            setClients(prev => prev.filter(c => !selectedIds.includes(c.id || c.id_interno)));
+            setSelectedIds([]);
+            showAlert({ title: 'Sucesso', message: 'Clientes removidos com sucesso.', variant: 'success' });
+        } catch (err) {
+            setError("Erro ao processar exclusão em massa.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleBulkStatus = async (active) => {
+        setLoading(true);
+        try {
+            await Promise.all(selectedIds.map(id => api.put(`/clientes/${id}`, { ativo: active })));
+            setClients(prev => prev.map(c => 
+                selectedIds.includes(c.id || c.id_interno) ? { ...c, ativo: active } : c
+            ));
+            setSelectedIds([]);
+            showAlert({ title: 'Sucesso', message: 'Status atualizados com sucesso.', variant: 'success' });
+        } catch (err) {
+            setError("Erro ao atualizar status em massa.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // Efeito para buscar clientes assim que a tela abre
     useEffect(() => {
         fetchClients();
@@ -156,7 +213,17 @@ const Clients = () => {
     };
 
     // Colunas fixas visuais da tabela
-    const tableColumns = ['CÓD', 'RAZÃO SOCIAL', 'CNPJ', 'REGIME', 'DRIVE', 'STATUS', 'AÇÕES'];
+    const tableColumns = [
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <input 
+                type="checkbox" 
+                checked={selectedIds.length === sortedClients.length && sortedClients.length > 0} 
+                onChange={toggleSelectAll}
+                style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+            />
+        </div>,
+        'CÓD', 'RAZÃO SOCIAL', 'CNPJ', 'REGIME', 'DRIVE', 'STATUS', 'AÇÕES'
+    ];
 
     const filteredClients = clients.filter(c => {
         if (!searchTerm) return true;
@@ -188,6 +255,15 @@ const Clients = () => {
 
     // Mapeamento e Transformação dos dados da API para encaixar visualmente no array das tuplas do DataTable
     const tableData = sortedClients.map((client) => [
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <input 
+                type="checkbox" 
+                checked={selectedIds.includes(client.id || client.id_interno)}
+                onChange={() => toggleSelectClient(client.id || client.id_interno)}
+                onClick={(e) => e.stopPropagation()} // Previne disparar clique na linha se houver
+                style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+            />
+        </div>,
         <div style={{ color: 'var(--primary-color, #3b82f6)', fontWeight: '600', whiteSpace: 'nowrap' }}>#{client.codigo || client.id_interno || client.id || '000'}</div>,
         <div style={{ fontWeight: 'bold', color: 'var(--text-light, #fff)' }}>{client.razao_social || client.nome || 'Sem Nome'}</div>,
         <div style={{ fontSize: '0.9rem', color: 'var(--text-muted, #9ca3af)', whiteSpace: 'nowrap' }}>{formatCnpj(client.cnpj)}</div>,
@@ -297,6 +373,81 @@ const Clients = () => {
             </header>
 
             <ClientSummaryCards />
+
+            {/* Barra de Ações em Massa (Elegante e Flutuante) */}
+            {selectedIds.length > 0 && (
+                <GlassCard style={{
+                    position: 'fixed',
+                    bottom: '30px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 1000,
+                    padding: '16px 32px',
+                    width: 'auto',
+                    minWidth: '500px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    animation: 'slideUp 0.4s ease-out',
+                    gap: '24px'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{
+                            backgroundColor: 'var(--primary-light)',
+                            color: 'white',
+                            borderRadius: '50%',
+                            width: '28px',
+                            height: '28px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 'bold',
+                            fontSize: '0.85rem'
+                        }}>
+                            {selectedIds.length}
+                        </div>
+                        <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '1rem' }}>
+                            {selectedIds.length === 1 ? 'Cliente selecionado' : 'Clientes selecionados'}
+                        </span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <Button variant="secondary" size="small" onClick={() => handleBulkStatus(true)}>
+                            <CheckCircle size={14} style={{ marginRight: '6px' }} /> Ativar
+                        </Button>
+                        <Button variant="secondary" size="small" onClick={() => handleBulkStatus(false)}>
+                            <AlertTriangle size={14} style={{ marginRight: '6px' }} /> Inativar
+                        </Button>
+                        <div style={{ width: '1px', height: '24px', backgroundColor: 'rgba(255,255,255,0.1)', margin: '0 8px' }} />
+                        <Button variant="danger" size="small" onClick={handleBulkDelete}>
+                            <Trash2 size={14} style={{ marginRight: '6px' }} /> Excluir
+                        </Button>
+                        <button 
+                            onClick={() => setSelectedIds([])}
+                            style={{ 
+                                background: 'none', 
+                                border: 'none', 
+                                color: 'var(--text-muted)', 
+                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                                marginLeft: '8px',
+                                textDecoration: 'underline'
+                            }}
+                        >
+                            Cancelar
+                        </button>
+                    </div>
+
+                    <style>{`
+                        @keyframes slideUp {
+                            from { transform: translate(-50%, 100px); opacity: 0; }
+                            to { transform: translate(-50%, 0); opacity: 1; }
+                        }
+                    `}</style>
+                </GlassCard>
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
                 <div style={{ display: 'flex', gap: '16px', flex: 1, flexWrap: 'wrap' }}>
