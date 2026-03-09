@@ -134,12 +134,21 @@ const Dashboard = () => {
 
                 const atrasadas = tasksList.filter(t => {
                     if (t.status === 'CONCLUIDA' || !t.due_date) return false;
+                    
                     const parts = t.due_date.split('/');
-                    if (parts.length === 3) {
-                        const date = new Date(parts[2], parts[1] - 1, parts[0]);
-                        return date < hoje;
+                    let date;
+                    
+                    if (parts.length === 2) {
+                        // Formato D/MM ou DD/MM - assume o ano atual
+                        date = new Date(hoje.getFullYear(), parts[1] - 1, parts[0]);
+                    } else if (parts.length === 3) {
+                        // Formato DD/MM/YYYY
+                        date = new Date(parts[2], parts[1] - 1, parts[0]);
+                    } else {
+                        return false;
                     }
-                    return false;
+
+                    return date < hoje;
                 }).length;
 
                 setKpis({
