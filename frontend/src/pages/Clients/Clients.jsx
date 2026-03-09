@@ -70,7 +70,7 @@ const Clients = () => {
                 style={{ cursor: 'pointer', width: '18px', height: '18px' }}
             />
         </div>,
-        'CÓD', 'RAZÃO SOCIAL', 'CNPJ', 'CIDADE/UF', 'REGIME', 'DRIVE', 'STATUS', 'AÇÕES'
+        'CÓD', 'RAZÃO SOCIAL', 'CNPJ', 'CIDADE', 'REGIME', 'DRIVE', 'STATUS', 'AÇÕES'
     ];
 
     const formatCnpj = (cnpj) => {
@@ -99,7 +99,7 @@ const Clients = () => {
         <div style={{ fontWeight: 'bold', color: 'var(--text-light, #fff)' }}>{client.razao_social || client.nome || 'Sem Nome'}</div>,
         <div style={{ fontSize: '0.9rem', color: 'var(--text-muted, #9ca3af)', whiteSpace: 'nowrap' }}>{formatCnpj(client.cnpj)}</div>,
         <div style={{ fontSize: '0.85rem', color: 'var(--text-main, #e5e7eb)' }}>
-            {client.cidade ? `${client.cidade}${client.estado ? ' - ' + client.estado : ''}` : (client.estado || '-')}
+            {client.cidade || '-'}
         </div>,
         <div key={`regime-${client.id || client.id_interno}`}>
             {(() => {
