@@ -20,6 +20,8 @@ export const ProcessAssignment = () => {
     const [clients, setClients] = useState([]);
     const [loadingData, setLoadingData] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadStatus, setUploadStatus] = useState('');
 
     // Seleções
     const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -133,6 +135,9 @@ export const ProcessAssignment = () => {
 
     const handleStartProcess = async () => {
         setIsSubmitting(true);
+        setUploadProgress(0);
+        setUploadStatus('Preparando lançamento...');
+        
         try {
             // Calcula quem realmente deve ser ADICIONADO (está na seleção mas não estava no banco)
             const toAdd = selectedClientIds.filter(id => !assignedClientIds.includes(id));
@@ -140,33 +145,54 @@ export const ProcessAssignment = () => {
             // Calcula quem realmente deve ser REMOVIDO (estava no banco mas não está mais na seleção)
             const toRemove = assignedClientIds.filter(id => !selectedClientIds.includes(id));
 
-            console.log("🚀 Iniciando atualização em lote:", {
+            const totalOperations = toAdd.length + toRemove.length;
+            let completedOperations = 0;
+
+            console.log("🚀 Iniciando atualização em lote (Chunks):", {
                 templateId: selectedTemplate?.id,
                 adicionar: toAdd.length,
                 remover: toRemove.length
             });
 
-            const promessas = [];
+            // Função auxiliar para processar em chunks
+            const processInChunks = async (items, action, typeLabel) => {
+                const chunkSize = 5; // Processa 5 por vez para não estourar o banco/conexões
+                for (let i = 0; i < items.length; i += chunkSize) {
+                    const chunk = items.slice(i, i + chunkSize);
+                    await Promise.all(chunk.map(async (clientId) => {
+                        const url = `/processos/clientes/${clientId}/${selectedTemplate.id}`;
+                        setUploadStatus(`${typeLabel} cliente ${completedOperations + 1} de ${totalOperations}...`);
+                        
+                        if (action === 'POST') {
+                            await api.post(url);
+                        } else {
+                            await api.delete(url);
+                        }
+                        
+                        completedOperations++;
+                        setUploadProgress(Math.round((completedOperations / totalOperations) * 100));
+                    }));
+                }
+            };
 
-            toAdd.forEach(clientId => {
-                const url = `/processos/clientes/${clientId}/${selectedTemplate.id}`;
-                console.log(`📤 Enviando POST para: ${url}`);
-                promessas.push(api.post(url));
-            });
+            // 1. Executa as remoções primeiro (para limpar o caminho se necessário)
+            if (toRemove.length > 0) {
+                await processInChunks(toRemove, 'DELETE', 'Removendo');
+            }
 
-            toRemove.forEach(clientId => {
-                const url = `/processos/clientes/${clientId}/${selectedTemplate.id}`;
-                console.log(`🗑️ Enviando DELETE para: ${url}`);
-                promessas.push(api.delete(url));
-            });
-
-            await Promise.all(promessas);
+            // 2. Executa as adições
+            if (toAdd.length > 0) {
+                await processInChunks(toAdd, 'POST', 'Lançando');
+            }
 
             let message = `${toAdd.length} clientes vinculados`;
             if (toRemove.length > 0) {
                 message += ` e ${toRemove.length} removidos`;
             }
             message += ` no processo '${selectedTemplate.nome}' com sucesso.`;
+
+            setUploadStatus('Concluído!');
+            setUploadProgress(100);
 
             await showAlert({
                 title: 'Atualização Concluída!',
@@ -181,19 +207,16 @@ export const ProcessAssignment = () => {
             setCurrentStep(1);
         } catch (error) {
             const errorMsg = error.response?.data?.detail || error.message;
-            const fullUrl = error.config?.url || 'URL desconhecida';
-            console.error("Erro detalhado ao lançar processo:", {
-                msg: errorMsg,
-                url: fullUrl,
-                data: error.response?.data
-            });
+            console.error("Erro detalhado ao lançar processo:", errorMsg);
             showAlert({
                 title: 'Erro na Atualização',
-                message: `Houve um erro: ${errorMsg}`,
+                message: `Houve um erro: ${errorMsg}. O processo parou em ${uploadProgress}%.`,
                 variant: 'danger'
             });
         } finally {
             setIsSubmitting(false);
+            setUploadProgress(0);
+            setUploadStatus('');
         }
     };
 
@@ -598,113 +621,78 @@ export const ProcessAssignment = () => {
                 <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>Tudo pronto para disparar as tarefas do mês.</p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', marginBottom: '40px' }}>
-                <GlassCard style={{ padding: '32px', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ 
-                        position: 'absolute', top: '-10px', right: '-10px', 
-                        opacity: 0.05, transform: 'rotate(15deg)' 
-                    }}>
-                        <Layout size={120} />
-                    </div>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '24px' }}>
+            <GlassCard style={{ padding: '40px', textAlign: 'center', border: '1px solid var(--primary-color)', marginBottom: '40px' }}>
+                {isSubmitting ? (
+                    <div style={{ padding: '20px' }}>
                         <div style={{ 
-                            p: '10px', background: 'rgba(59, 130, 246, 0.15)', 
-                            borderRadius: '12px', color: 'var(--primary-color)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            width: '44px', height: '44px'
-                        }}>
-                            <FileText size={24} />
-                        </div>
-                        <h4 style={{ fontWeight: '800', fontSize: '1.1rem', color: 'var(--text-main)' }}>Fluxo de Trabalho</h4>
-                    </div>
-                    
-                    <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#fff', marginBottom: '12px' }}>{selectedTemplate?.nome}</div>
-                    
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '0.95rem' }}>
-                            <Calendar size={18} style={{ color: 'var(--primary-color)' }} /> 
-                            <span>Frequência: <b>{selectedTemplate?.frequencia || 'Mensal'}</b></span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '0.95rem' }}>
-                            <CheckCircle size={18} style={{ color: '#10b981' }} /> 
-                            <span><b>{selectedTemplate?.qtd_rotinas || 0}</b> Rotinas configuradas</span>
-                        </div>
-                    </div>
-
-                    <div style={{ 
-                        marginTop: '24px', p: '12px', borderRadius: '10px', 
-                        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
-                        fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic'
-                    }}>
-                        "{selectedTemplate?.descricao || 'Sem descrição definida.'}"
-                    </div>
-                </GlassCard>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                    <GlassCard style={{ padding: '24px', flex: 1, borderLeft: '4px solid #10b981' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', color: '#10b981' }}>
-                            <Users size={24} />
-                            <h4 style={{ fontWeight: '800', fontSize: '1rem' }}>Impacto do Cadastro</h4>
-                        </div>
-                        <div style={{ fontSize: '2.4rem', fontWeight: '900', color: '#fff', lineHeight: 1 }}>{selectedClientIds.length}</div>
-                        <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '4px' }}>Empresas Vinculadas</div>
-                    </GlassCard>
-
-                    <GlassCard style={{ padding: '20px', flex: 2, background: 'rgba(0,0,0,0.2)' }}>
-                        <h4 style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '12px' }}>Lista de Selecionados</h4>
+                            width: '80px', height: '80px', border: '5px solid rgba(255,255,255,0.1)', 
+                            borderTop: '5px solid var(--primary-color)', borderRadius: '50%', 
+                            margin: '0 auto 24px auto', animation: 'spin 1s linear infinite' 
+                        }} />
+                        <h3 style={{ fontSize: '2.5rem', fontWeight: '900', marginBottom: '12px', color: '#fff' }}>{uploadProgress}%</h3>
+                        <p style={{ color: 'var(--primary-color)', fontWeight: '700', marginBottom: '24px', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                            {uploadStatus}
+                        </p>
+                        
                         <div style={{ 
-                            maxHeight: '140px', overflowY: 'auto', pr: '8px', 
-                            display: 'flex', flexWrap: 'wrap', gap: '8px' 
+                            width: '100%', height: '10px', background: 'rgba(255,255,255,0.05)', 
+                            borderRadius: '10px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' 
                         }}>
-                            {clients.filter(c => selectedClientIds.includes(c.id || c.id_interno)).map(c => (
-                                <span key={c.id || c.id_interno} style={{
-                                    fontSize: '0.75rem', padding: '4px 10px', borderRadius: '12px',
-                                    background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)',
-                                    border: '1px solid rgba(255,255,255,0.1)'
-                                }}>
-                                    {c.razao_social || c.nome || "Empresa"}
-                                </span>
-                            ))}
+                            <div style={{ 
+                                width: `${uploadProgress}%`, height: '100%', background: 'linear-gradient(90deg, var(--primary-color), #818cf8)', 
+                                transition: 'width 0.3s ease-out' 
+                            }} />
                         </div>
-                    </GlassCard>
-                </div>
-            </div>
+                    </div>
+                ) : (
+                    <>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '32px', textAlign: 'left', marginBottom: '32px' }}>
+                            <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                                    <div style={{ padding: '10px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '12px', color: 'var(--primary-color)' }}>
+                                        <Layout size={24} />
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '700' }}>PROCESSO</div>
+                                        <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#fff' }}>{selectedTemplate?.nome}</div>
+                                    </div>
+                                </div>
+                                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: '1.6' }}>
+                                    {selectedTemplate?.descricao || 'Sem descrição definida.'}
+                                </p>
+                            </div>
 
-            <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                <button
-                    onClick={() => setCurrentStep(2)}
-                    style={{
-                        flex: 1, height: '56px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.1)',
-                        background: 'rgba(255,255,255,0.05)', color: '#fff', fontWeight: '700', cursor: 'pointer',
-                        transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
-                    }}
-                    className="hover-card"
-                >
-                    <ChevronLeft size={20} /> Ajustar Clientes
-                </button>
-                <button
-                    onClick={handleStartProcess}
-                    disabled={isSubmitting}
-                    style={{
-                        flex: 2, height: '56px', borderRadius: '14px', border: 'none',
-                        background: 'linear-gradient(135deg, var(--primary-color) 0%, #4f46e5 100%)',
-                        color: '#fff', fontWeight: '800', fontSize: '1.1rem', cursor: 'pointer',
-                        transition: 'all 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
-                        boxShadow: '0 10px 25px -5px rgba(59, 130, 246, 0.5)',
-                        opacity: isSubmitting ? 0.7 : 1
-                    }}
-                    className="hover-card"
-                >
-                    {isSubmitting ? (
-                        <>Iniciando...</>
-                    ) : (
-                        <>
-                            <Play size={22} fill="currentColor" /> LANÇAR AGORA
-                        </>
-                    )}
-                </button>
-            </div>
+                            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: '16px', padding: '24px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '700', marginBottom: '8px' }}>CLIENTES SELECIONADOS</div>
+                                <div style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--primary-color)' }}>{selectedClientIds.length}</div>
+                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '8px' }}>
+                                    As tarefas serão criadas na competência aberta.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '16px' }}>
+                            <Button 
+                                variant="secondary" 
+                                onClick={() => setCurrentStep(2)}
+                                style={{ flex: 1, height: '54px' }}
+                            >
+                                <ChevronLeft size={20} /> Ajustar Clientes
+                            </Button>
+                            <Button 
+                                variant="primary" 
+                                onClick={handleStartProcess}
+                                style={{ 
+                                    flex: 2, height: '54px', fontSize: '1.1rem', fontWeight: '800',
+                                    boxShadow: '0 10px 20px rgba(59, 130, 246, 0.3)'
+                                }}
+                            >
+                                <Play size={22} fill="currentColor" /> LANÇAR AGORA
+                            </Button>
+                        </div>
+                    </>
+                )}
+            </GlassCard>
         </div>
     );
 
@@ -784,6 +772,10 @@ export const ProcessAssignment = () => {
                 @keyframes slideRight {
                     from { opacity: 0; transform: translateX(-20px); }
                     to { opacity: 1; transform: translateX(0); }
+                }
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
                 }
                 .hover-card:hover {
                     transform: translateY(-5px);

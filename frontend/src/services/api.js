@@ -16,7 +16,7 @@ console.log(`[API Config] Base URL definida: ${API_BASE_URL}`);
  */
 const apiInstance = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 15000,
+    timeout: 30000,
     withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
