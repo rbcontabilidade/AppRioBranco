@@ -62,6 +62,9 @@ const AdvancedDashboardView = ({ tasks, onCompleteTask, isAdmin }) => {
                 };
             }
             cGroups[cName].tasks.push(t);
+            if (t.drive_link && !cGroups[cName].drive_link) {
+                cGroups[cName].drive_link = t.drive_link;
+            }
         });
 
         return Object.values(cGroups).map(c => {
@@ -74,7 +77,7 @@ const AdvancedDashboardView = ({ tasks, onCompleteTask, isAdmin }) => {
                 progress,
                 currentTask,
                 completedTasks: completed,
-                totalTasks: c.tasks.length
+                totalTasks: c.tasks.length,
             };
         }).sort((a, b) => a.name.localeCompare(b.name));
     }, [activeProcess]);
@@ -203,6 +206,7 @@ const AdvancedDashboardView = ({ tasks, onCompleteTask, isAdmin }) => {
                                 <thead>
                                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase' }}>
                                         <th style={{ padding: '12px 16px', fontWeight: '600' }}>Cliente</th>
+                                        <th style={{ padding: '12px 16px', fontWeight: '600', textAlign: 'center' }}>Drive</th>
                                         <th style={{ padding: '12px 16px', fontWeight: '600' }}>Status Atual</th>
                                         <th style={{ padding: '12px 16px', fontWeight: '600' }}>Progresso</th>
                                     </tr>
@@ -226,6 +230,29 @@ const AdvancedDashboardView = ({ tasks, onCompleteTask, isAdmin }) => {
                                             >
                                                 <td style={{ padding: '16px', fontWeight: isSelected ? '600' : '500', color: isSelected ? 'white' : 'var(--text-color)', fontSize: '0.9rem' }}>
                                                     {c.name}
+                                                </td>
+                                                <td style={{ padding: '16px', textAlign: 'center' }}>
+                                                    {c.driveLink ? (
+                                                        <a 
+                                                            href={c.driveLink} 
+                                                            target="_blank" 
+                                                            rel="noopener noreferrer"
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            style={{ 
+                                                                display: 'inline-flex', 
+                                                                color: '#34a853', // Cor oficial do Drive/Google Sheets
+                                                                transition: 'transform 0.2s ease',
+                                                                cursor: 'pointer'
+                                                            }}
+                                                            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.2)'}
+                                                            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                                                            title="Abrir Google Drive"
+                                                        >
+                                                            <ExternalLink size={18} />
+                                                        </a>
+                                                    ) : (
+                                                        <span style={{ color: 'rgba(255,255,255,0.1)' }}>-</span>
+                                                    )}
                                                 </td>
                                                 <td style={{ padding: '16px' }}>
                                                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 8px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '600', color: statusObj.color, backgroundColor: statusObj.bg, border: `1px solid ${statusObj.border}` }}>
