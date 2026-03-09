@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { GlassCard } from '../../components/ui/GlassCard/GlassCard';
 import { Button } from '../../components/ui/Button/Button';
 import {
     Search, Filter, Play, CheckCircle,
     ChevronRight, ChevronLeft, Layout,
-    Users, Send, FileText, Calendar
+    Users, Send, FileText, Calendar, ArrowLeft
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useDialog } from '../../contexts/DialogContext';
 
 export const ProcessAssignment = () => {
+    const navigate = useNavigate();
     const { showAlert } = useDialog();
     const [currentStep, setCurrentStep] = useState(1);
 
@@ -57,10 +58,19 @@ export const ProcessAssignment = () => {
     }, []);
 
     const filteredClients = clients.filter(c => {
-        // Filtro de Busca e Regime
-        const matchName = (c.razao_social || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (c.cnpj || '').includes(searchTerm);
-        const matchRegime = selectedRegime ? c.regime === selectedRegime : true;
+        // Filtro de Busca (Nome, Razão Social ou CNPJ)
+        const matchName = (c.razao_social || c.nome || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (c.cnpj || '').replace(/\D/g, '').includes(searchTerm.replace(/\D/g, ''));
+
+        // Filtro de Regime (Inteligente: aceita regime ou regime_tributario)
+        let matchRegime = true;
+        if (selectedRegime) {
+            const clientRegime = (c.regime_tributario || c.regime || '').toLowerCase().trim();
+            const targetRegime = selectedRegime.toLowerCase().trim();
+            
+            // Verificação parcial ou exata para lidar com variações
+            matchRegime = clientRegime.includes(targetRegime) || targetRegime.includes(clientRegime);
+        }
         
         return matchName && matchRegime;
     });
@@ -348,14 +358,27 @@ export const ProcessAssignment = () => {
                                         {client.cnpj || "---"}
                                     </td>
                                     <td style={{ padding: '16px' }}>
-                                        <span style={{
-                                            padding: '4px 10px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: '800',
-                                            background: client.regime === 'Simples Nacional' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
-                                            color: client.regime === 'Simples Nacional' ? '#34d399' : '#fbbf24',
-                                            border: `1px solid ${client.regime === 'Simples Nacional' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`
-                                        }}>
-                                            {client.regime?.toUpperCase()}
-                                        </span>
+                                        {(() => {
+                                            const regime = (client.regime_tributario || client.regime || '').toLowerCase();
+                                            const isSimples = regime.includes('simples');
+                                            const isLucro = regime.includes('lucro');
+                                            
+                                            let color = '#94a3b8';
+                                            let bg = 'rgba(148, 163, 184, 0.1)';
+                                            
+                                            if (isSimples) { color = '#34d399'; bg = 'rgba(16, 185, 129, 0.2)'; }
+                                            else if (isLucro) { color = '#fbbf24'; bg = 'rgba(245, 158, 11, 0.2)'; }
+
+                                            return (
+                                                <span style={{
+                                                    padding: '4px 10px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: '800',
+                                                    background: bg, color: color,
+                                                    border: `1px solid ${bg.replace('0.2', '0.3')}`
+                                                }}>
+                                                    {(client.regime_tributario || client.regime || 'N/A').toUpperCase()}
+                                                </span>
+                                            );
+                                        })()}
                                     </td>
                                 </tr>
                             ))
@@ -376,48 +399,118 @@ export const ProcessAssignment = () => {
     );
 
     const renderStep3 = () => (
-        <div style={{ animation: 'slideRight 0.4s ease-out', maxWidth: '800px', margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Confirmação de Lançamento</h2>
-                <p style={{ color: 'var(--text-muted)' }}>Revise os detalhes antes de iniciar o fluxo de trabalho</p>
+        <div style={{ animation: 'slideRight 0.4s ease-out', maxWidth: '900px', margin: '0 auto' }}>
+            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+                <h2 style={{ fontSize: '1.8rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>Confirmar Inicialização</h2>
+                <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>Tudo pronto para disparar as tarefas do mês.</p>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '32px' }}>
-                <GlassCard style={{ padding: '24px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', color: 'var(--primary-color)' }}>
-                        <Layout size={24} />
-                        <h4 style={{ fontWeight: 'bold' }}>Processo Escolhido</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', marginBottom: '40px' }}>
+                <GlassCard style={{ padding: '32px', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ 
+                        position: 'absolute', top: '-10px', right: '-10px', 
+                        opacity: 0.05, transform: 'rotate(15deg)' 
+                    }}>
+                        <Layout size={120} />
                     </div>
-                    <div style={{ fontSize: '1.2rem', fontWeight: '700', marginBottom: '4px' }}>{selectedTemplate?.nome}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                        <Calendar size={14} /> Frequência: {selectedTemplate?.frequencia || 'Mensal'}
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '24px' }}>
+                        <div style={{ 
+                            p: '10px', background: 'rgba(59, 130, 246, 0.15)', 
+                            borderRadius: '12px', color: 'var(--primary-color)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            width: '44px', height: '44px'
+                        }}>
+                            <FileText size={24} />
+                        </div>
+                        <h4 style={{ fontWeight: '800', fontSize: '1.1rem', color: 'var(--text-main)' }}>Fluxo de Trabalho</h4>
+                    </div>
+                    
+                    <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#fff', marginBottom: '12px' }}>{selectedTemplate?.nome}</div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '0.95rem' }}>
+                            <Calendar size={18} style={{ color: 'var(--primary-color)' }} /> 
+                            <span>Frequência: <b>{selectedTemplate?.frequencia || 'Mensal'}</b></span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', fontSize: '0.95rem' }}>
+                            <CheckCircle size={18} style={{ color: '#10b981' }} /> 
+                            <span><b>{selectedTemplate?.qtd_rotinas || 0}</b> Rotinas configuradas</span>
+                        </div>
+                    </div>
+
+                    <div style={{ 
+                        marginTop: '24px', p: '12px', borderRadius: '10px', 
+                        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)',
+                        fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic'
+                    }}>
+                        "{selectedTemplate?.descricao || 'Sem descrição definida.'}"
                     </div>
                 </GlassCard>
 
-                <GlassCard style={{ padding: '24px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', color: '#10b981' }}>
-                        <Users size={24} />
-                        <h4 style={{ fontWeight: 'bold' }}>Impacto</h4>
-                    </div>
-                    <div style={{ fontSize: '1.2rem', fontWeight: '700', marginBottom: '4px' }}>{selectedClientIds.length} Clientes</div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', maxHeight: '100px', overflowY: 'auto', borderTop: '1px outset rgba(0,0,0,0.05)', paddingTop: '8px' }}>
-                        {clients.filter(c => selectedClientIds.includes(c.id)).map(c => c.razao_social || "Sem Nome").join(', ')}
-                    </div>
-                </GlassCard>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    <GlassCard style={{ padding: '24px', flex: 1, borderLeft: '4px solid #10b981' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', color: '#10b981' }}>
+                            <Users size={24} />
+                            <h4 style={{ fontWeight: '800', fontSize: '1rem' }}>Impacto do Cadastro</h4>
+                        </div>
+                        <div style={{ fontSize: '2.4rem', fontWeight: '900', color: '#fff', lineHeight: 1 }}>{selectedClientIds.length}</div>
+                        <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '4px' }}>Empresas Vinculadas</div>
+                    </GlassCard>
+
+                    <GlassCard style={{ padding: '20px', flex: 2, background: 'rgba(0,0,0,0.2)' }}>
+                        <h4 style={{ fontSize: '0.8rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '12px' }}>Lista de Selecionados</h4>
+                        <div style={{ 
+                            maxHeight: '140px', overflowY: 'auto', pr: '8px', 
+                            display: 'flex', flexWrap: 'wrap', gap: '8px' 
+                        }}>
+                            {clients.filter(c => selectedClientIds.includes(c.id || c.id_interno)).map(c => (
+                                <span key={c.id || c.id_interno} style={{
+                                    fontSize: '0.75rem', padding: '4px 10px', borderRadius: '12px',
+                                    background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)',
+                                    border: '1px solid rgba(255,255,255,0.1)'
+                                }}>
+                                    {c.razao_social || c.nome || "Empresa"}
+                                </span>
+                            ))}
+                        </div>
+                    </GlassCard>
+                </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '16px' }}>
-                <Button variant="secondary" style={{ flex: 1 }} onClick={() => setCurrentStep(2)}>
-                    Ajustar Clientes
-                </Button>
-                <Button
-                    variant="primary"
-                    style={{ flex: 2, height: '54px', fontSize: '1.1rem', boxShadow: '0 8px 20px rgba(59, 130, 246, 0.4)' }}
+            <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                <button
+                    onClick={() => setCurrentStep(2)}
+                    style={{
+                        flex: 1, height: '56px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.1)',
+                        background: 'rgba(255,255,255,0.05)', color: '#fff', fontWeight: '700', cursor: 'pointer',
+                        transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                    }}
+                    className="hover-card"
+                >
+                    <ChevronLeft size={20} /> Ajustar Clientes
+                </button>
+                <button
                     onClick={handleStartProcess}
                     disabled={isSubmitting}
+                    style={{
+                        flex: 2, height: '56px', borderRadius: '14px', border: 'none',
+                        background: 'linear-gradient(135deg, var(--primary-color) 0%, #4f46e5 100%)',
+                        color: '#fff', fontWeight: '800', fontSize: '1.1rem', cursor: 'pointer',
+                        transition: 'all 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
+                        boxShadow: '0 10px 25px -5px rgba(59, 130, 246, 0.5)',
+                        opacity: isSubmitting ? 0.7 : 1
+                    }}
+                    className="hover-card"
                 >
-                    {isSubmitting ? 'Processando...' : '🔥 Confirmar e Lançar Agora'}
-                </Button>
+                    {isSubmitting ? (
+                        <>Iniciando...</>
+                    ) : (
+                        <>
+                            <Play size={22} fill="currentColor" /> LANÇAR AGORA
+                        </>
+                    )}
+                </button>
             </div>
         </div>
     );
@@ -425,11 +518,63 @@ export const ProcessAssignment = () => {
     return (
         <div className="view-section active" style={{ padding: '24px 0' }}>
             <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-                <header style={{ marginBottom: '40px' }}>
-                    <h1 style={{ fontSize: '2rem', fontWeight: '800', background: 'linear-gradient(135deg, var(--text-dark) 0%, #64748b 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                        Lançamento de Processos
-                    </h1>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '1.05rem', marginTop: '8px' }}>Inicie fluxos de trabalho em lote para seus clientes de forma organizada</p>
+                <header style={{ 
+                    marginBottom: '40px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    gap: '24px' 
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        <button 
+                            onClick={() => navigate('/processes')}
+                            style={{
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '12px',
+                                width: '48px',
+                                height: '48px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'var(--text-main)',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                            className="hover-card"
+                            title="Voltar para Gestão de Templates"
+                        >
+                            <ArrowLeft size={20} />
+                        </button>
+                        <div>
+                            <h1 style={{ 
+                                fontSize: '2rem', 
+                                fontWeight: '800', 
+                                margin: 0,
+                                background: 'linear-gradient(135deg, var(--text-dark, #fff) 0%, #64748b 100%)', 
+                                WebkitBackgroundClip: 'text', 
+                                WebkitTextFillColor: 'transparent' 
+                            }}>
+                                Lançamento de Processos
+                            </h1>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '1.05rem', margin: '4px 0 0 0' }}>Inicie fluxos de trabalho em lote para seus clientes</p>
+                        </div>
+                    </div>
+
+                    <div style={{
+                        background: 'rgba(99, 102, 241, 0.1)',
+                        padding: '8px 16px',
+                        borderRadius: '20px',
+                        border: '1px solid rgba(99, 102, 241, 0.2)',
+                        color: 'var(--primary-color)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontSize: '0.9rem',
+                        fontWeight: '600'
+                    }}>
+                        <Layout size={16} /> PASSO {currentStep} DE 3
+                    </div>
                 </header>
 
                 {renderStepIndicators()}
