@@ -28,6 +28,7 @@ export const ProcessAssignment = () => {
 
     // Filtros
     const [searchTerm, setSearchTerm] = useState('');
+    const [templateSearchTerm, setTemplateSearchTerm] = useState('');
     const [selectedRegime, setSelectedRegime] = useState('');
 
     useEffect(() => {
@@ -207,49 +208,108 @@ export const ProcessAssignment = () => {
         </div>
     );
 
-    const renderStep1 = () => (
-        <div style={{ animation: 'slideRight 0.4s ease-out' }}>
-            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-main)' }}>Qual processo deseja lançar?</h2>
-                <p style={{ color: 'var(--text-muted)' }}>Escolha um modelo de fluxo pré-configurado para iniciar</p>
-            </div>
+    const renderStep1 = () => {
+        const filteredTemplates = templates.filter(t => 
+            (t.nome || '').toLowerCase().includes(templateSearchTerm.toLowerCase()) ||
+            (t.descricao || '').toLowerCase().includes(templateSearchTerm.toLowerCase())
+        );
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
-                {loadingData ? (
-                    Array(3).fill(0).map((_, i) => (
-                        <GlassCard key={i} style={{ height: '180px', opacity: 0.5 }} className="skeleton-loading" />
-                    ))
-                ) : (
-                    templates.map(t => (
-                        <GlassCard
-                            key={t.id}
-                            onClick={() => handleSelectTemplate(t)}
-                            style={{
-                                padding: '24px', cursor: 'pointer', transition: 'all 0.2s',
-                                border: selectedTemplate?.id === t.id ? '2px solid var(--primary-color)' : '1px solid rgba(0,0,0,0.05)',
-                                display: 'flex', flexDirection: 'column', gap: '12px'
-                            }}
-                            className="hover-card"
-                        >
-                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <div style={{ p: '8px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '8px', color: 'var(--primary-color)' }}>
-                                    <FileText size={20} />
+        return (
+            <div style={{ animation: 'slideRight 0.4s ease-out' }}>
+                <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+                    <h2 style={{ fontSize: '1.8rem', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>Selecione o Fluxo de Trabalho</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>Localize o processo ideal para iniciar o lançamento em lote</p>
+                </div>
+
+                <GlassCard style={{ padding: '16px', marginBottom: '32px', maxWidth: '600px', margin: '0 auto 40px auto', position: 'relative' }}>
+                    <Search size={20} style={{ position: 'absolute', left: '24px', top: '18px', color: 'var(--primary-color)' }} />
+                    <input
+                        className="glass-input"
+                        placeholder="Buscar por nome ou descrição do processo..."
+                        value={templateSearchTerm}
+                        onChange={(e) => setTemplateSearchTerm(e.target.value)}
+                        style={{ paddingLeft: '56px', width: '100%', height: '52px', fontSize: '1rem', borderRadius: '14px' }}
+                    />
+                    {templateSearchTerm && (
+                        <div style={{ position: 'absolute', right: '40px', top: '24px', fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                            {filteredTemplates.length} ENCONTRADOS
+                        </div>
+                    )}
+                </GlassCard>
+
+                <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', 
+                    gap: '24px',
+                    maxHeight: '600px',
+                    overflowY: 'auto',
+                    padding: '4px',
+                    pr: '8px'
+                }}>
+                    {loadingData ? (
+                        Array(6).fill(0).map((_, i) => (
+                            <GlassCard key={i} style={{ height: '160px', opacity: 0.5 }} className="skeleton-loading" />
+                        ))
+                    ) : filteredTemplates.length === 0 ? (
+                        <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+                            <Filter size={48} style={{ opacity: 0.2, marginBottom: '16px' }} />
+                            <p>Nenhum processo encontrado com esse termo.</p>
+                        </div>
+                    ) : (
+                        filteredTemplates.map(t => (
+                            <GlassCard
+                                key={t.id}
+                                onClick={() => handleSelectTemplate(t)}
+                                style={{
+                                    padding: '24px', cursor: 'pointer', transition: 'all 0.25s',
+                                    border: selectedTemplate?.id === t.id ? '2.5px solid var(--primary-color)' : '1px solid rgba(255,255,255,0.08)',
+                                    display: 'flex', flexDirection: 'column', gap: '14px',
+                                    background: 'rgba(255,255,255,0.03)'
+                                }}
+                                className="hover-card"
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div style={{ 
+                                        p: '10px', background: 'rgba(59, 130, 246, 0.12)', 
+                                        borderRadius: '10px', color: 'var(--primary-color)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                    }}>
+                                        <FileText size={22} />
+                                    </div>
+                                    <span style={{ 
+                                        fontSize: '0.7rem', fontWeight: '800', textTransform: 'uppercase', 
+                                        background: 'rgba(255,255,255,0.05)', padding: '4px 10px', borderRadius: '20px',
+                                        color: 'var(--text-muted)', border: '1px solid rgba(255,255,255,0.1)'
+                                    }}>
+                                        {t.frequencia || 'Mensal'}
+                                    </span>
                                 </div>
-                                <span style={{ fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase', background: 'rgba(0,0,0,0.05)', padding: '2px 8px', borderRadius: '10px' }}>
-                                    {t.frequencia || 'Mensal'}
-                                </span>
-                            </div>
-                            <h3 style={{ fontSize: '1.1rem', fontWeight: '700' }}>{t.nome}</h3>
-                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>{t.descricao || 'Sem descrição definida.'}</p>
-                            <div style={{ marginTop: 'auto', paddingTop: '12px', fontSize: '0.8rem', color: 'var(--primary-color)', fontWeight: '600' }}>
-                                {t.qtd_rotinas || 0} rotinas vinculadas
-                            </div>
-                        </GlassCard>
-                    ))
-                )}
+                                <div>
+                                    <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#fff', marginBottom: '6px' }}>{t.nome}</h3>
+                                    <p style={{ 
+                                        fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.5',
+                                        display: '-webkit-box', WebkitLineClamp: '2', WebkitBoxOrient: 'vertical',
+                                        overflow: 'hidden', height: '38px'
+                                    }}>
+                                        {t.descricao || 'Sem descrição definida.'}
+                                    </p>
+                                </div>
+                                <div style={{ 
+                                    marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.05)',
+                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                                }}>
+                                    <span style={{ fontSize: '0.8rem', color: 'var(--primary-color)', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <CheckCircle size={14} /> {t.qtd_rotinas || 0} rotinas
+                                    </span>
+                                    <ChevronRight size={18} style={{ color: 'var(--text-muted)', opacity: 0.5 }} />
+                                </div>
+                            </GlassCard>
+                        ))
+                    )}
+                </div>
             </div>
-        </div>
-    );
+        );
+    };
 
     const renderStep2 = () => (
         <div style={{ animation: 'slideRight 0.4s ease-out' }}>
@@ -284,6 +344,7 @@ export const ProcessAssignment = () => {
                     >
                         <option value="">Todos os Regimes</option>
                         <option value="Simples Nacional">Simples Nacional</option>
+                        <option value="MEI">MEI</option>
                         <option value="Lucro Presumido">Lucro Presumido</option>
                         <option value="Lucro Real">Lucro Real</option>
                     </select>
@@ -362,12 +423,14 @@ export const ProcessAssignment = () => {
                                         {(() => {
                                             const regime = (client.regime_tributario || client.regime || '').toLowerCase();
                                             const isSimples = regime.includes('simples');
+                                            const isMei = regime.includes('mei');
                                             const isLucro = regime.includes('lucro');
                                             
                                             let color = '#94a3b8';
                                             let bg = 'rgba(148, 163, 184, 0.1)';
                                             
-                                            if (isSimples) { color = '#34d399'; bg = 'rgba(16, 185, 129, 0.2)'; }
+                                            if (isMei) { color = '#60a5fa'; bg = 'rgba(59, 130, 246, 0.2)'; }
+                                            else if (isSimples) { color = '#34d310'; bg = 'rgba(16, 185, 129, 0.2)'; }
                                             else if (isLucro) { color = '#fbbf24'; bg = 'rgba(245, 158, 11, 0.2)'; }
 
                                             return (
