@@ -335,8 +335,17 @@ async def _save_steps(processo_id: int, steps: List[RotinaSchema]):
                 id_map[s.id] = t_id
                 id_map_by_ordem[s.ordem] = t_id
         except Exception as step_error:
-            logger.error(f"Erro ao salvar step {s.nome} no processo {processo_id}: {step_error}")
-            raise step_error
+            error_msg = str(step_error)
+            # Tentar extrair a mensagem limpa se for um erro do supabase (PGRST ou similar)
+            if hasattr(step_error, 'details') and step_error.details:
+                error_msg = f"{step_error.message} - {step_error.details}"
+            elif isinstance(step_error, dict) and 'message' in step_error:
+                error_msg = step_error['message']
+                
+            logger.error(f"Erro ao salvar step {s.nome} no processo {processo_id}: {error_msg}")
+            
+            # Subir o erro como HTTPException para que o frontend (axios) capture a estrutura
+            raise HTTPException(status_code=400, detail=f"Erro ao salvar a rotina '{s.nome}': {error_msg}")
 
     # Segundo Passo: Resolver Dependências Hierárquicas
     # Prioridade 1: dependência explícita do frontend.

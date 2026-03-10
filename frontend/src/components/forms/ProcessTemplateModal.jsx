@@ -219,7 +219,17 @@ export const ProcessTemplateModal = ({ isOpen, onClose, onSave, initialData }) =
             onClose();
             showAlert({ title: 'Sucesso', message: 'Template de processo salvo com sucesso!', variant: 'success' });
         } catch (err) {
-            showAlert({ title: 'Erro', message: 'Falha ao salvar o template.', variant: 'danger' });
+            console.error("Erro completo ao salvar o template:", err);
+            const errorMsg = err.response?.data?.detail 
+                || err.response?.data?.message 
+                || err.message 
+                || 'Falha ao salvar o template.';
+                
+            showAlert({ 
+                title: 'Erro ao Salvar', 
+                message: errorMsg, 
+                variant: 'danger' 
+            });
         } finally {
             setIsSaving(false);
         }
