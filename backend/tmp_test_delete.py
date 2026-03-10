@@ -1,0 +1,57 @@
+import asyncio
+import json
+import httpx
+from src.main import app
+from src.core.database import supabase
+
+async def test_update_asgi():
+    # Encontra um processo que TEM clientes
+    res = supabase.table("rh_processos_clientes").select("processo_id").limit(1).execute()
+    if not res.data:
+        print("Nenhum processo com clientes.")
+        return
+    p_id = res.data[0]['processo_id']
+    print(f"Processo alvo (com clientes): {p_id}")
+    
+    # Busca detalhes
+    res_p = supabase.table("rh_processos").select("*").eq("id", p_id).single().execute()
+    p_data = res_p.data
+    
+    res_t = supabase.table("rh_tarefas").select("*, rh_tarefas_responsaveis(funcionario_id), rh_tarefas_checklists(*)").eq("processo_id", p_id).eq("is_active", True).execute()
+    
+    steps = []
+    # REMOVENDO UMA TAREFA NO PAYLOAD (simulando usuário que deletou a última)
+    data_tarefas = res_t.data[:-1] if len(res_t.data) > 1 else res_t.data
+    
+    for t in data_tarefas:
+        # REMOVENDO UM ITEM DE CHECKLIST
+        checklists = [{"id": c['id'], "text": c['item_texto']} for c in t['rh_tarefas_checklists']]
+        if len(checklists) > 1:
+            checklists = checklists[:-1]
+            
+        steps.append({
+            "id": t['id'],
+            "nome": t['titulo'],
+            "descricao": t['descricao'] or '',
+            "ordem": t['ordem'],
+            "dias_prazo": t['dias_prazo'] or 0,
+            "dependente_de_id": t['dependente_de_id'],
+            "responsible_users": [r['funcionario_id'] for r in t['rh_tarefas_responsaveis']],
+            "checklist": checklists
+        })
+        
+    payload = {
+        "nome": p_data['nome'] + " Editado e Removido via ASGI",
+        "descricao": p_data.get('descricao') or '',
+        "frequencia": p_data.get('frequencia') or 'Mensal',
+        "steps": steps
+    }
+    
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.put(f"/api/processos/{p_id}", json=payload)
+        print("Status HTTP:", resp.status_code)
+        print("Response:", resp.text)
+
+if __name__ == "__main__":
+    asyncio.run(test_update_asgi())

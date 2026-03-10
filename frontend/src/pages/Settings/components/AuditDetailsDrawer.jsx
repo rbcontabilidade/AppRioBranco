@@ -128,10 +128,10 @@ export const AuditDetailsDrawer = ({ log, onClose }) => {
                 <div>
                   <div className="text-xs text-gray-500">Data e Hora</div>
                   <div className="text-sm text-white font-medium">
-                    {format(new Date(log.created_at), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR })}
+                    {log.created_at ? format(new Date(log.created_at), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR }) : 'Data não informada'}
                   </div>
                   <div className="text-xs text-gray-400">
-                    UTC {format(new Date(log.created_at), "xxx")}
+                    UTC {log.created_at ? format(new Date(log.created_at), "xxx") : ''}
                   </div>
                 </div>
               </div>
@@ -170,14 +170,14 @@ export const AuditDetailsDrawer = ({ log, onClose }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <div className="text-xs text-gray-500 font-medium px-1">Valor Anterior</div>
-                  <pre className="bg-black/40 rounded-lg p-3 text-xs text-danger border border-danger/20 overflow-x-auto whitespace-pre-wrap max-h-60 overflow-y-auto">
-                    {JSON.stringify(log.old_values, null, 2)}
+                  <pre className="bg-black/40 rounded-lg p-3 text-xs text-danger border border-danger/20 overflow-x-auto whitespace-pre-wrap max-h-60 overflow-y-auto text-left">
+                    {typeof log.old_values === 'string' ? log.old_values : JSON.stringify(log.old_values, null, 2)}
                   </pre>
                 </div>
                 <div className="space-y-2">
                   <div className="text-xs text-gray-500 font-medium px-1">Novo Valor</div>
-                  <pre className="bg-black/40 rounded-lg p-3 text-xs text-success border border-success/20 overflow-x-auto whitespace-pre-wrap max-h-60 overflow-y-auto">
-                    {JSON.stringify(log.new_values, null, 2)}
+                  <pre className="bg-black/40 rounded-lg p-3 text-xs text-success border border-success/20 overflow-x-auto whitespace-pre-wrap max-h-60 overflow-y-auto text-left">
+                    {typeof log.new_values === 'string' ? log.new_values : JSON.stringify(log.new_values, null, 2)}
                   </pre>
                 </div>
               </div>

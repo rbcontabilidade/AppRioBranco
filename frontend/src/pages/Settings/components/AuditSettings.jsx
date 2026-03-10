@@ -142,10 +142,12 @@ export const AuditSettings = () => {
 
     const tableColumns = ['Data/Hora', 'Usuário', 'Módulo', 'Ação', 'Entidade', 'Status', 'Severidade', ''];
 
-    const tableData = logs.map(log => [
+    const tableData = logs.map(log => {
+        const dateObj = log.created_at ? new Date(log.created_at) : new Date();
+        return [
         <div className="flex flex-col">
-          <span className="text-white font-medium">{format(new Date(log.created_at), "dd/MM/yyyy")}</span>
-          <span className="text-[10px] text-gray-500">{format(new Date(log.created_at), "HH:mm:ss")}</span>
+          <span className="text-white font-medium">{format(dateObj, "dd/MM/yyyy")}</span>
+          <span className="text-[10px] text-gray-500">{format(dateObj, "HH:mm:ss")}</span>
         </div>,
         <div className="flex flex-col max-w-[150px]">
           <span className="text-white truncate" title={log.user_name}>{log.user_name}</span>
@@ -166,7 +168,8 @@ export const AuditSettings = () => {
         >
             <Eye size={18} />
         </button>
-    ]);
+    ];
+    });
 
     const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -216,7 +219,7 @@ export const AuditSettings = () => {
                         name="module"
                         value={filters.module}
                         onChange={handleFilterChange}
-                        className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-secondary"
+                        className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-secondary [&>option]:bg-[#1a1c1e]"
                     >
                         <option value="">Todos Módulos</option>
                         <option value="auth">Autenticação</option>
@@ -231,7 +234,7 @@ export const AuditSettings = () => {
                         name="status"
                         value={filters.status}
                         onChange={handleFilterChange}
-                        className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-secondary"
+                        className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-secondary [&>option]:bg-[#1a1c1e]"
                     >
                         <option value="">Todos Status</option>
                         <option value="success">Sucesso</option>
@@ -244,7 +247,7 @@ export const AuditSettings = () => {
                         name="severity"
                         value={filters.severity}
                         onChange={handleFilterChange}
-                        className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-secondary"
+                        className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-secondary [&>option]:bg-[#1a1c1e]"
                     >
                         <option value="">Severidade</option>
                         <option value="low">Baixa</option>
