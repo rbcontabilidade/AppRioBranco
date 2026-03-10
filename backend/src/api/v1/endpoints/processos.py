@@ -216,7 +216,11 @@ async def obter_processo(id: int):
                 "dias_prazo": t['dias_prazo'],
                 "dependente_de_id": t['dependente_de_id'],
                 "responsible_users": [r['funcionario_id'] for r in t['rh_tarefas_responsaveis']],
-                "checklist": [{"id": c['id'], "text": c['item_texto']} for c in t['rh_tarefas_checklists']]
+                "checklist": [
+                    {"id": c['id'], "text": c['item_texto']} 
+                    for c in t.get('rh_tarefas_checklists', []) 
+                    if c.get('is_active', True)
+                ]
             })
             
         processo['steps'] = steps
@@ -317,10 +321,11 @@ async def _save_steps(processo_id: int, steps: List[RotinaSchema]):
                         
                         for rid in ids_para_remover:
                             try:
-                                # Tenta deletar. Se falhar por FK (em uso por execuções), falha silenciosamente
+                                # Tenta deletar fisicamente. Funciona se não tiver amarrado a histórico.
                                 supabase_admin.table("rh_tarefas_checklists").delete().eq("id", rid).execute()
                             except Exception:
-                                pass # Remover o logger.warning para evitar qualquer stringification estranha
+                                # Fallback: Se falhar por FK, faz soft-delete p/ preservar histórico de execuções
+                                supabase_admin.table("rh_tarefas_checklists").update({"is_active": False}).eq("id", rid).execute()
             else:
                 # É uma tarefa nova (ID temporário vindo do frontend ou None)
                 res_t = supabase_admin.table("rh_tarefas").insert(payload).execute()
