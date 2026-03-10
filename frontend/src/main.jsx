@@ -6,6 +6,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { DialogProvider } from './contexts/DialogContext';
 import { GlobalDialog } from './components/ui/GlobalDialog';
 import { Toast } from './components/ui/Toast';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import App from './App.jsx';
 
 const container = document.getElementById('react-root');
@@ -18,6 +19,7 @@ if (container) {
                     <GlobalDialog />
                     <Toast />
                     <App />
+                    <SpeedInsights />
                 </DialogProvider>
             </AuthProvider>
         </React.StrictMode>
