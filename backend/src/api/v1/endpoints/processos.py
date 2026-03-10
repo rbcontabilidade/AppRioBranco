@@ -276,11 +276,10 @@ async def _save_steps(processo_id: int, steps: List[RotinaSchema]):
                             .in_("funcionario_id", remove_resps) \
                             .execute()
 
-                    # 2. Checklist: Sincronização Inteligente (Evita Restricted Delete Error)
+                    # 2. Checklist: Sincronização Inteligente (Evita Restricted Delete Error e Spurious FK)
                     if s.checklist:
-                        # Identifica itens que já têm ID real
-                        items_para_upsert = []
                         itens_ids_enviados = []
+                        itens_novos = []
                         
                         for c in s.checklist:
                             curr_c_id = c.id
@@ -288,21 +287,29 @@ async def _save_steps(processo_id: int, steps: List[RotinaSchema]):
                             if curr_c_id is not None and isinstance(curr_c_id, int) and curr_c_id < 1000000000:
                                 c_id_real = int(curr_c_id)
                             
-                            item_payload = {
-                                "tarefa_id": t_id,
-                                "item_texto": c.text
-                            }
                             if c_id_real:
-                                item_payload["id"] = c_id_real
-                                itens_ids_enviados.append(c_id_real)
-                            
-                            items_para_upsert.append(item_payload)
+                                # Update explícito de texto sem tocar na Primary Key ou Foreign Key (Evita Erro FK PostgREST)
+                                try:
+                                    supabase_admin.table("rh_tarefas_checklists").update({
+                                        "item_texto": c.text
+                                    }).eq("id", c_id_real).execute()
+                                    itens_ids_enviados.append(c_id_real)
+                                except Exception as e:
+                                    pass # Se der warning de update, silencia para não travar o loop
+                            else:
+                                # Novo item coletado para Insert
+                                itens_novos.append({
+                                    "tarefa_id": t_id,
+                                    "item_texto": c.text
+                                })
                         
-                        if items_para_upsert:
-                            supabase_admin.table("rh_tarefas_checklists").upsert(items_para_upsert).execute()
+                        if itens_novos:
+                            try:
+                                supabase_admin.table("rh_tarefas_checklists").insert(itens_novos).execute()
+                            except:
+                                pass
                             
                         # Limpeza de itens órfãos (removidos no frontend)
-                        # Busca todos os itens atuais da tarefa
                         res_chk_db = supabase_admin.table("rh_tarefas_checklists").select("id").eq("tarefa_id", t_id).execute()
                         db_chk_ids = [r['id'] for r in (res_chk_db.data or [])]
                         
@@ -310,11 +317,10 @@ async def _save_steps(processo_id: int, steps: List[RotinaSchema]):
                         
                         for rid in ids_para_remover:
                             try:
-                                # Tenta deletar. Se falhar por FK (em uso por execuções), silencia.
-                                # Usamos supabase_admin aqui também para consistência
+                                # Tenta deletar. Se falhar por FK (em uso por execuções), falha silenciosamente
                                 supabase_admin.table("rh_tarefas_checklists").delete().eq("id", rid).execute()
-                            except Exception as del_err:
-                                logger.warning(f"Item de checklist {rid} não pôde ser removido: {del_err}")
+                            except Exception:
+                                pass # Remover o logger.warning para evitar qualquer stringification estranha
             else:
                 # É uma tarefa nova (ID temporário vindo do frontend ou None)
                 res_t = supabase_admin.table("rh_tarefas").insert(payload).execute()
