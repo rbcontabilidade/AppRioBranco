@@ -1,7 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { GlassCard } from '../../components/ui/GlassCard/GlassCard';
 import { Button } from '../../components/ui/Button/Button';
 import { FileText, Users, Clock, PlayCircle, Lock, ExternalLink, CheckCircle2 } from 'lucide-react';
+
+const toId = (name) => name ? name.toString().replace(/[\s\W]+/g, '_') : '';
 
 const AdvancedDashboardView = ({ tasks, onCompleteTask, isAdmin }) => {
     // 1. Agrupar tarefas por processo
@@ -33,19 +35,32 @@ const AdvancedDashboardView = ({ tasks, onCompleteTask, isAdmin }) => {
         }).sort((a, b) => b.progress - a.progress);
     }, [tasks]);
 
-    const [selectedProcessName, setSelectedProcessName] = useState(processesData[0]?.name || null);
+    const [selectedProcessName, setSelectedProcessName] = useState(() => {
+        return localStorage.getItem('advancedViewProcess') || (processesData[0]?.name || null);
+    });
     
     // Preserva a seleção de processo após refetch: só reseta se o processo anterior não existe mais
-    React.useEffect(() => {
+    useEffect(() => {
         if (processesData.length > 0) {
             const aindaExiste = processesData.some(p => p.name === selectedProcessName);
             if (!aindaExiste) {
                 // Fallback seguro: usa o primeiro processo disponível
                 setSelectedProcessName(processesData[0].name);
             }
-            // Se ainda existe, mantém a seleção atual — não faz nada
         }
     }, [processesData]);
+
+    useEffect(() => {
+        if (selectedProcessName) {
+            localStorage.setItem('advancedViewProcess', selectedProcessName);
+            setTimeout(() => {
+                const el = document.getElementById(`process-${toId(selectedProcessName)}`);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+        } else {
+            localStorage.removeItem('advancedViewProcess');
+        }
+    }, [selectedProcessName]);
 
     const activeProcess = processesData.find(p => p.name === selectedProcessName);
 
@@ -83,22 +98,35 @@ const AdvancedDashboardView = ({ tasks, onCompleteTask, isAdmin }) => {
         }).sort((a, b) => a.name.localeCompare(b.name));
     }, [activeProcess]);
 
-    const [selectedClientName, setSelectedClientName] = useState(null);
+    const [selectedClientName, setSelectedClientName] = useState(() => {
+        return localStorage.getItem('advancedViewClient') || null;
+    });
 
     // Preserva o cliente selecionado após refetch: só reseta se o cliente anterior não existe mais
-    React.useEffect(() => {
+    useEffect(() => {
         if (clientsData.length > 0) {
             const aindaExiste = clientsData.some(c => c.name === selectedClientName);
             if (!aindaExiste) {
                 // Fallback seguro: usa o primeiro cliente do processo
                 setSelectedClientName(clientsData[0]?.name ?? null);
             }
-            // Se ainda existe, mantém o cliente selecionado — não faz nada
         } else {
             // Processo não tem clientes — limpa a seleção
             setSelectedClientName(null);
         }
     }, [clientsData]);
+
+    useEffect(() => {
+        if (selectedClientName) {
+            localStorage.setItem('advancedViewClient', selectedClientName);
+            setTimeout(() => {
+                const el = document.getElementById(`client-${toId(selectedClientName)}`);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
+        } else {
+            localStorage.removeItem('advancedViewClient');
+        }
+    }, [selectedClientName]);
 
     const activeClient = clientsData.find(c => c.name === selectedClientName);
 
@@ -137,6 +165,7 @@ const AdvancedDashboardView = ({ tasks, onCompleteTask, isAdmin }) => {
                         return (
                             <div 
                                 key={p.name}
+                                id={`process-${toId(p.name)}`}
                                 onClick={() => setSelectedProcessName(p.name)}
                                 style={{
                                     padding: '12px',
@@ -219,6 +248,7 @@ const AdvancedDashboardView = ({ tasks, onCompleteTask, isAdmin }) => {
                                         return (
                                             <tr 
                                                 key={c.name}
+                                                id={`client-${toId(c.name)}`}
                                                 onClick={() => setSelectedClientName(c.name)}
                                                 style={{ 
                                                     cursor: 'pointer',

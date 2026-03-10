@@ -717,7 +717,7 @@ const Dashboard = () => {
                             marginBottom: '2rem'
                         }}>
                             <KpiCard
-                                title="Total Processos"
+                                title="Total"
                                 value={kpis.total}
                                 icon={<FileText size={20} />}
                                 status="info"
