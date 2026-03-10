@@ -199,10 +199,10 @@ export const AuditSettings = () => {
             </div>
 
             {/* Barra de Filtros */}
-            <GlassCard className="p-4 bg-white/5 border-white/10">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+            <div className="bg-[#111315]/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-xl shadow-black/20">
+                <div className="flex flex-wrap items-center gap-3">
                     {/* Busca */}
-                    <div className="relative col-span-1 sm:col-span-2">
+                    <div className="relative flex-grow min-w-[200px] max-w-sm">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
                         <input 
                             type="text"
@@ -210,7 +210,7 @@ export const AuditSettings = () => {
                             placeholder="Buscar por usuário, descrição..."
                             value={filters.search}
                             onChange={handleFilterChange}
-                            className="w-full bg-black/20 border border-white/10 rounded-lg pl-10 pr-4 py-2 text-sm text-white focus:outline-none focus:border-secondary transition-colors"
+                            className="w-full bg-black/40 border border-white/5 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-secondary/50 focus:border-secondary transition-all placeholder:text-gray-600"
                         />
                     </div>
 
@@ -219,7 +219,7 @@ export const AuditSettings = () => {
                         name="module"
                         value={filters.module}
                         onChange={handleFilterChange}
-                        className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-secondary [&>option]:bg-[#1a1c1e]"
+                        className="bg-black/40 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-gray-300 focus:outline-none focus:ring-1 focus:ring-secondary/50 focus:border-secondary transition-all min-w-[140px] [&>option]:bg-[#1a1c1e] appearance-none cursor-pointer"
                     >
                         <option value="">Todos Módulos</option>
                         <option value="auth">Autenticação</option>
@@ -234,7 +234,7 @@ export const AuditSettings = () => {
                         name="status"
                         value={filters.status}
                         onChange={handleFilterChange}
-                        className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-secondary [&>option]:bg-[#1a1c1e]"
+                        className="bg-black/40 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-gray-300 focus:outline-none focus:ring-1 focus:ring-secondary/50 focus:border-secondary transition-all min-w-[140px] [&>option]:bg-[#1a1c1e] appearance-none cursor-pointer"
                     >
                         <option value="">Todos Status</option>
                         <option value="success">Sucesso</option>
@@ -247,7 +247,7 @@ export const AuditSettings = () => {
                         name="severity"
                         value={filters.severity}
                         onChange={handleFilterChange}
-                        className="bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-secondary [&>option]:bg-[#1a1c1e]"
+                        className="bg-black/40 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-gray-300 focus:outline-none focus:ring-1 focus:ring-secondary/50 focus:border-secondary transition-all min-w-[140px] [&>option]:bg-[#1a1c1e] appearance-none cursor-pointer"
                     >
                         <option value="">Severidade</option>
                         <option value="low">Baixa</option>
@@ -257,26 +257,26 @@ export const AuditSettings = () => {
                     </select>
 
                     {/* Data Início */}
-                    <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={14} />
+                    <div className="relative flex items-center bg-black/40 border border-white/5 rounded-xl px-3 py-1 focus-within:ring-1 focus-within:ring-secondary/50 focus-within:border-secondary transition-all min-w-[150px]">
+                        <Calendar className="text-gray-500 mr-2" size={16} />
                         <input 
                             type="date"
                             name="startDate"
                             value={filters.startDate}
                             onChange={handleFilterChange}
-                            className="w-full bg-black/20 border border-white/10 rounded-lg pl-9 pr-2 py-2 text-xs text-white focus:outline-none"
+                            className="bg-transparent text-sm text-gray-300 focus:outline-none w-full appearance-none [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:invert"
                         />
                     </div>
 
                     {/* Botão Limpar */}
                     <button 
                         onClick={clearFilters}
-                        className="flex items-center justify-center gap-2 text-xs text-gray-400 hover:text-white transition-colors p-2"
+                        className="flex items-center justify-center gap-2 text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 rounded-xl transition-all px-4 py-2 ml-auto"
                     >
-                        <XCircle size={16} /> Limpar Filtros
+                        <XCircle size={16} /> Limpar
                     </button>
                 </div>
-            </GlassCard>
+            </div>
 
             {/* Tabela de Dados */}
             <div className="relative min-h-[400px]">
