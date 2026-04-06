@@ -1,0 +1,77 @@
+# Vercel Speed Insights Implementation
+
+## Summary
+Successfully installed and configured Vercel Speed Insights for the React + Vite project following the official Vercel documentation.
+
+## Changes Made
+
+### 1. Package Installation
+- **File**: `package.json`
+- **Change**: Added `@vercel/speed-insights` version `^2.0.0` as a dependency
+- **Package Manager**: npm (used to maintain consistency with existing package-lock.json)
+
+### 2. Speed Insights Integration
+- **File**: `src/main.jsx`
+- **Changes**:
+  - Added import: `import { injectSpeedInsights } from '@vercel/speed-insights';`
+  - Called `injectSpeedInsights()` before React initialization to ensure Speed Insights tracking is active from the start
+
+### 3. Dependencies Updated
+- **File**: `package-lock.json`
+- **Change**: Locked dependencies for @vercel/speed-insights and its transitive dependencies (228 packages total)
+
+## Implementation Details
+
+### Framework-Specific Approach
+This project uses **Vite + React**, so I followed the Vercel documentation's guidance for Vite projects, which recommends:
+- Using `injectSpeedInsights()` from `@vercel/speed-insights` 
+- Calling it in the main entry point (main.jsx) before the React app initializes
+
+The implementation ensures Speed Insights starts collecting Core Web Vitals data (LCP, FID, CLS, FCP, TTFB, INP) as soon as the application loads.
+
+### Code Placement
+The `injectSpeedInsights()` call is positioned:
+1. After all imports (including styles)
+2. Before the React root creation and rendering
+3. This ensures tracking starts immediately and captures all user interactions
+
+## Verification
+
+### Build Verification ✓
+- Ran `npm run build` successfully
+- No build errors or warnings introduced
+- All chunks compiled correctly with proper code splitting maintained
+- Build time: ~5.69s
+
+### Files Modified
+- `frontend/package.json` - Added Speed Insights dependency
+- `frontend/package-lock.json` - Updated lockfile with new dependencies
+- `frontend/src/main.jsx` - Integrated Speed Insights initialization
+
+## Next Steps for Deployment
+
+To complete the Speed Insights setup:
+
+1. **Enable Speed Insights in Vercel Dashboard**:
+   - Navigate to your project in the Vercel dashboard
+   - Go to Speed Insights section in the sidebar
+   - Click "Enable" to activate the feature
+   - This will add the necessary routes at `/_vercel/speed-insights/*`
+
+2. **Deploy to Vercel**:
+   - Push these changes to your repository
+   - Vercel will automatically deploy the updated application
+   - Speed Insights will start collecting data after the first deployment
+
+3. **Monitor Performance**:
+   - Once deployed and users visit the site, Core Web Vitals data will appear in the Vercel dashboard
+   - View real-time and historical performance metrics
+   - Analyze page-by-page performance insights
+
+## Technical Notes
+
+- Speed Insights is framework-agnostic and works seamlessly with React Router (used in this project)
+- The integration is lightweight and won't impact application performance
+- Data collection begins automatically once the Vercel Speed Insights backend is enabled
+- Compatible with all Vercel plans (including free tier)
+- The implementation preserves all existing code structure, imports, and functionality
