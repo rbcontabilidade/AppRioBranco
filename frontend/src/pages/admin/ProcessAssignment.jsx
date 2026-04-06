@@ -76,9 +76,12 @@ export const ProcessAssignment = () => {
     }, []);
 
     const filteredClients = clients.filter(c => {
-        // Filtro de Busca (Nome, Razão Social ou CNPJ)
-        const matchName = (c.razao_social || c.nome || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (c.cnpj || '').replace(/\D/g, '').includes(searchTerm.replace(/\D/g, ''));
+        const term = searchTerm.toLowerCase().trim();
+        
+        // Se a busca estiver vazia, apenas o filtro de Regime importa
+        const matchSearch = term === "" || 
+            (c.razao_social || c.nome || '').toLowerCase().includes(term) ||
+            (term.replace(/\D/g, '') !== "" && (c.cnpj || '').replace(/\D/g, '').includes(term.replace(/\D/g, '')));
 
         // Filtro de Regime (Inteligente: aceita regime ou regime_tributario)
         let matchRegime = true;
@@ -90,7 +93,7 @@ export const ProcessAssignment = () => {
             matchRegime = clientRegime.includes(targetRegime) || targetRegime.includes(clientRegime);
         }
         
-        return matchName && matchRegime;
+        return matchSearch && matchRegime;
     });
 
     const handleSelectTemplate = async (template) => {
