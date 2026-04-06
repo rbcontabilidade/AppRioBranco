@@ -111,8 +111,20 @@ async def login(response: Response, form_data: LoginRequest):
         
         access_token = create_access_token(data=token_data)
         
+        # Define o cookie seguro (HttpOnly por padrão no seu middleware se aplicável, mas aqui faremos explícito)
+        response.set_cookie(
+            key="access_token", 
+            value=f"Bearer {access_token}", 
+            httponly=False, # Definido como False para compatibilidade com o fetch simples se necessário
+            max_age=1440 * 60, # 24 horas em segundos
+            samesite="lax",
+            secure=False # Em localhost (HTTP) deve ser False
+        )
+        
         return {
              "message": "Login efetuado com sucesso",
+             "access_token": access_token,
+             "token_type": "bearer",
              "user": {
                  "id": user["id"],
                  "nome": user.get("nome"),

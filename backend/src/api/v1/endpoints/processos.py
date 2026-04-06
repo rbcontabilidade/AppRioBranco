@@ -156,7 +156,7 @@ async def listar_processos():
         # Puxa processos, suas tarefas (com setores e responsáveis) e também os vínculos de clientes
         res = supabase.table("rh_processos").select(
             "*, "
-            "rh_tarefas(id, is_active, role, rh_tarefas_responsaveis(funcionarios(nome))), "
+            "rh_tarefas(id, is_active, setores(nome), rh_tarefas_responsaveis(funcionarios(nome))), "
             "rh_processos_clientes(processo_id)"
         ).execute()
         
@@ -170,11 +170,13 @@ async def listar_processos():
             p['frequencia'] = p.get('frequencia', 'Mensal')
             
             # Coleta setores únicos
-            setores = set()
+            setores_unicos = set()
             for t in tarefas_ativas:
-                if t.get('role'):
-                    setores.add(t['role'])
-            p['setores'] = sorted(list(setores))
+                # O join com setores retorna um objeto {'nome': '...'}
+                setor_obj = t.get('setores')
+                if setor_obj and isinstance(setor_obj, dict) and setor_obj.get('nome'):
+                    setores_unicos.add(setor_obj['nome'])
+            p['setores'] = sorted(list(setores_unicos))
             
             # Coleta nomes de funcionários responsáveis únicos
             responsaveis = set()
