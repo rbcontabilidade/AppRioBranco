@@ -1,0 +1,76 @@
+.fullTableContainer {
+    padding: 1.5rem;
+    width: 100%;
+}
+
+.tableResponsive {
+    overflow-x: auto;
+    padding-bottom: 10px;
+}
+
+.dataTable {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 8px;
+}
+
+.dataTable th {
+    text-align: left;
+    padding: 0 1rem 0.6rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border-glass);
+}
+
+.dataTable td {
+    padding: 0.7rem 1rem;
+    background: rgba(148, 163, 184, 0.05);
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+    border-top: 1px solid transparent;
+    border-bottom: 1px solid transparent;
+}
+
+.dataTable tbody tr {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dataTable tbody tr:hover td {
+    background: rgba(255, 255, 255, 0.05);
+    border-top: 1px solid var(--border-glass);
+    border-bottom: 1px solid var(--border-glass);
+}
+
+.selectableRows tbody tr {
+    cursor: pointer;
+}
+
+.dataTable td:first-child {
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+    border-left: 1px solid transparent;
+}
+
+.dataTable td:last-child {
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    border-right: 1px solid transparent;
+}
+
+.dataTable tbody tr:hover td:first-child {
+    border-left: 1px solid var(--border-glass);
+}
+
+.dataTable tbody tr:hover td:last-child {
+    border-right: 1px solid var(--border-glass);
+}
+
+.clickableCell {
+    cursor: pointer;
+}
+
+.clickableCell:hover {
+    color: var(--primary-light) !important;
+    text-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+}

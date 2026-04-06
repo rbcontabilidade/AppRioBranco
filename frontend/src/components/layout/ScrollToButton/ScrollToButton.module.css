@@ -1,0 +1,66 @@
+/* ========== BOTÃO FLUTUANTE DE SCROLL ========== */
+
+.scrollBtn {
+    /* Posicionamento fixo no canto inferior direito */
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 50;
+
+    /* Dimensões e formato redondo */
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid var(--border-glass);
+
+    /* Visual com transparência (glassmorphism) */
+    background: rgba(99, 102, 241, 0.25);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    color: var(--text-main);
+
+    /* Flexbox para centralizar o ícone */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    /* Interatividade */
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(99, 102, 241, 0.2);
+
+    /* Animação de entrada */
+    animation: fadeInBtn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+
+    /* Transição suave nos estados */
+    transition: background 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease;
+}
+
+/* Estado de hover - fica mais visível */
+.scrollBtn:hover {
+    background: rgba(99, 102, 241, 0.55);
+    transform: scale(1.12);
+    box-shadow: 0 6px 28px rgba(99, 102, 241, 0.35), 0 0 0 1px rgba(99, 102, 241, 0.4);
+}
+
+/* Estado quando está no fundo: tom diferente para indicar "volta ao topo" */
+.scrollBtn.atBottom {
+    background: rgba(139, 92, 246, 0.3);
+}
+
+.scrollBtn.atBottom:hover {
+    background: rgba(139, 92, 246, 0.55);
+    box-shadow: 0 6px 28px rgba(139, 92, 246, 0.35), 0 0 0 1px rgba(139, 92, 246, 0.4);
+}
+
+/* Animação de entrada do botão */
+@keyframes fadeInBtn {
+    0% {
+        opacity: 0;
+        transform: scale(0.6) translateY(10px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}

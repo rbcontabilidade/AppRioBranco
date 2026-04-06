@@ -1,0 +1,69 @@
+.kpiCard {
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.3s ease;
+}
+
+.kpiCard:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+}
+
+.kpiIcon {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.3rem;
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--primary-light);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+.kpiData {
+    display: flex;
+    flex-direction: column;
+}
+
+.kpiData h3 {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 0.2rem;
+}
+
+.kpiValue {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1;
+}
+
+.statusSuccess .kpiIcon {
+    background: var(--success-bg);
+    color: var(--success);
+}
+
+.statusWarning .kpiIcon {
+    background: var(--warning-bg);
+    color: var(--warning);
+}
+
+.statusDanger .kpiIcon {
+    background: var(--danger-bg);
+    color: var(--danger);
+    box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.3);
+}
+
+.statusInfo .kpiIcon {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3B82F6;
+    box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.3);
+}

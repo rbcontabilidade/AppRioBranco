@@ -1,0 +1,387 @@
+/* ─────────────────────────────────────────────────────────
+   Gestão de Competências — Estilos Premium
+   ───────────────────────────────────────────────────────── */
+
+/* === Cabeçalho da Página === */
+.pageHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+}
+
+.headerLeft {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.headerTitle {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+    line-height: 1.2;
+}
+
+.headerSubtitle {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    margin: 0;
+    max-width: 500px;
+}
+
+.headerRight {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+/* === Banner de competência ativa === */
+.activeBanner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 24px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(16, 185, 129, 0.04) 100%);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    border-left: 4px solid #10b981;
+    border-radius: var(--radius-md);
+    margin-bottom: 24px;
+}
+
+.activeBannerIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    background: rgba(16, 185, 129, 0.18);
+    border-radius: 50%;
+    flex-shrink: 0;
+    color: #10b981;
+}
+
+.activeBannerContent {
+    flex: 1;
+}
+
+.activeBannerLabel {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #10b981;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 2px;
+}
+
+.activeBannerPeriod {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+/* === Grid de Cards === */
+.cardsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 20px;
+}
+
+/* === Card Individual de Competência === */
+.compCard {
+    position: relative;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    overflow: hidden;
+}
+
+.compCard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* Card ativo com destaque visual */
+.compCardActive {
+    border-color: rgba(16, 185, 129, 0.5);
+    background: linear-gradient(
+        135deg,
+        rgba(16, 185, 129, 0.06) 0%,
+        var(--bg-surface) 60%
+    );
+    box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.2), 0 4px 24px rgba(16, 185, 129, 0.08);
+}
+
+/* Faixa de destaque no topo do card ativo */
+.compCardActive::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #10b981, #34d399);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+/* === Cabeçalho do Card === */
+.cardHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.cardPeriod {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--text-main);
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+}
+
+/* === Badges de Status === */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.badgeActive {
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+}
+
+/* Ponto pulsante para competência ativa */
+.badgeActive::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: pulse 2s ease-in-out infinite;
+    display: inline-block;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+.badgeClosed {
+    background-color: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.badgeArchived {
+    background-color: rgba(100, 116, 139, 0.1);
+    color: #94a3b8;
+    border: 1px solid rgba(100, 116, 139, 0.2);
+}
+
+.badgeDraft {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+/* === Metadados do Card === */
+.cardMeta {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.cardMetaRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.cardMetaRow svg {
+    flex-shrink: 0;
+    color: var(--text-very-muted, rgba(148, 163, 184, 0.6));
+}
+
+/* === Barra de Ações do Card === */
+.cardActions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-glass);
+}
+
+/* Tooltip de bloqueio para ações desabilitadas */
+.disabledActionWrapper {
+    position: relative;
+    display: inline-flex;
+}
+
+.disabledActionWrapper:hover .blockedTooltip {
+    opacity: 1;
+    transform: translateY(-100%) translateX(-50%);
+}
+
+.blockedTooltip {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateY(-90%) translateX(-50%);
+    background: rgba(15, 23, 42, 0.95);
+    color: #f87171;
+    font-size: 0.75rem;
+    padding: 6px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 100;
+    border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+/* === Estado vazio === */
+.emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 72px 24px;
+    text-align: center;
+    gap: 16px;
+}
+
+.emptyStateIcon {
+    color: var(--text-muted);
+    opacity: 0.3;
+}
+
+.emptyStateTitle {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.emptyStateSubtitle {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin: 0;
+    opacity: 0.7;
+}
+
+/* === Loading === */
+.loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 240px;
+    font-size: 1rem;
+    color: var(--text-muted);
+    gap: 12px;
+}
+
+/* === Nota Informativa === */
+.infoNote {
+    margin-top: 28px;
+    padding: 16px 20px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-glass);
+    border-left: 4px solid var(--primary);
+    border-radius: var(--radius-md);
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
+.infoNote strong {
+    color: var(--primary-light);
+}
+
+/* === Modal de Formulário === */
+.formContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* === Modal de Confirmação de Senha === */
+.deleteModalContent {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.deleteWarningBanner {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 18px;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: var(--radius-md);
+}
+
+.deleteWarningIcon {
+    color: #ef4444;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.deleteWarningText {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.deleteWarningText strong {
+    color: #ef4444;
+    display: block;
+    font-size: 0.92rem;
+    margin-bottom: 4px;
+}
+
+.deleteCompName {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-main);
+    padding: 10px 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.passwordErrorMsg {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: #ef4444;
+    padding: 8px 12px;
+    background: rgba(239, 68, 68, 0.07);
+    border-radius: var(--radius-sm, 6px);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}

@@ -1,0 +1,81 @@
+/* Barra de Cabeçalho Superior */
+.topbar {
+    height: var(--topbar-height, 70px);
+    flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 1.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.topbarLeft {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 1;
+    /* Permite que o espaçador ocupe espaço do lado esquerdo quando necessário */
+}
+
+/* Espaçador substituindo barra de pesquisa onde não é necessária */
+.spacer {
+    flex: 1;
+}
+
+.topbarActions {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.actionBtn {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-glass, rgba(255, 255, 255, 0.1));
+    color: var(--text-main, #f8fafc);
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.actionBtn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+.badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: var(--danger, #ef4444);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 700;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%;
+    border: 2px solid var(--bg-base, #1e293b);
+}
+
+.topbarNotification {
+    margin-right: 0.5rem;
+}
+
+.dateDisplay {
+    font-weight: 500;
+    color: var(--text-main, #f8fafc);
+    font-size: 0.95rem;
+    min-width: 250px;
+    text-align: right;
+    display: inline-block;
+}
