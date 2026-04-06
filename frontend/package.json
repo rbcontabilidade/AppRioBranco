@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.98.0",
+    "@vercel/speed-insights": "^2.0.0",
     "axios": "^1.13.6",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.576.0",
