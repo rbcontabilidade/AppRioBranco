@@ -13,17 +13,20 @@ const PrivateRoute = ({ children }) => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                minHeight: '100vh',
-                background: '#0f172a'
+                height: '100vh',
+                background: 'var(--bg-primary, #0f172a)',
+                color: 'var(--text-muted, #94a3b8)',
+                fontSize: '14px',
+                gap: '12px'
             }}>
                 <div style={{
-                    width: '48px',
-                    height: '48px',
-                    border: '2px solid #6366f1',
+                    width: '20px', height: '20px',
+                    border: '2px solid var(--accent, #6366f1)',
                     borderTopColor: 'transparent',
                     borderRadius: '50%',
-                    animation: 'spin 1s linear infinite'
-                }}></div>
+                    animation: 'spin 0.8s linear infinite'
+                }} />
+                Carregando Plataforma...
             </div>
         );
     }

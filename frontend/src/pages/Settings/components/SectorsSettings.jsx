@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { GlassCard } from '../../../components/ui/GlassCard/GlassCard';
 import { Button } from '../../../components/ui/Button/Button';
 import DataTable from '../../../components/ui/DataTable/DataTable';
@@ -7,27 +8,17 @@ import { Users, Plus, Edit2, Trash2 } from 'lucide-react';
 import { SettingsModal } from './SettingsModal';
 
 export const SectorsSettings = () => {
-    const [sectors, setSectors] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
+    const { data: sectors = [], isLoading: loading } = useQuery({
+        queryKey: ['setores'],
+        queryFn: async () => (await api.get('/setores')).data || [],
+        staleTime: 5 * 60 * 1000
+    });
     const [modalOpen, setModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [formData, setFormData] = useState({ nome: '' });
 
-    const fetchSectors = async () => {
-        try {
-            setLoading(true);
-            const res = await api.get('/setores');
-            setSectors(res.data);
-        } catch (err) {
-            console.error("Erro ao carregar setores", err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchSectors();
-    }, []);
+    // React Query cuida do cache e polling automático
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -40,7 +31,7 @@ export const SectorsSettings = () => {
             setModalOpen(false);
             setFormData({ nome: '' });
             setEditingId(null);
-            fetchSectors();
+            queryClient.invalidateQueries({ queryKey: ['setores'] });
         } catch (err) {
             alert("Erro ao salvar setor.");
         }
@@ -50,7 +41,7 @@ export const SectorsSettings = () => {
         if (!window.confirm("Atenção: Deletar este setor desvinculará a organização de todos os funcionários ligados a ele. Deseja continuar?")) return;
         try {
             await api.delete(`/setores/${id}`);
-            fetchSectors();
+            queryClient.invalidateQueries({ queryKey: ['setores'] });
         } catch (err) {
             alert("Erro ao deletar setor.");
         }

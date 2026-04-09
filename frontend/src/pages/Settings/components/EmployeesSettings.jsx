@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { GlassCard } from '../../../components/ui/GlassCard/GlassCard';
 import { Button } from '../../../components/ui/Button/Button';
 import DataTable from '../../../components/ui/DataTable/DataTable';
@@ -7,9 +8,21 @@ import { Users, UserPlus, Edit2, Trash2 } from 'lucide-react';
 import { SettingsModal } from './SettingsModal';
 
 export const EmployeesSettings = () => {
-    const [employees, setEmployees] = useState([]);
-    const [sectors, setSectors] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
+
+    const { data: employees = [], isLoading: loadingEmp } = useQuery({
+        queryKey: ['funcionarios'],
+        queryFn: async () => (await api.get('/funcionarios')).data || [],
+        staleTime: 5 * 60 * 1000
+    });
+
+    const { data: sectors = [], isLoading: loadingSec } = useQuery({
+        queryKey: ['setores'],
+        queryFn: async () => (await api.get('/setores')).data || [],
+        staleTime: 5 * 60 * 1000
+    });
+
+    const loading = loadingEmp || loadingSec;
 
     const [modalOpen, setModalOpen] = useState(false);
     const [editingId, setEditingId] = useState(null);
@@ -21,25 +34,7 @@ export const EmployeesSettings = () => {
         ativo: true
     });
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-            const [empRes, secRes] = await Promise.all([
-                api.get('/funcionarios'),
-                api.get('/setores')
-            ]);
-            setEmployees(empRes.data || []);
-            setSectors(secRes.data || []);
-        } catch (err) {
-            console.error("Erro ao carregar os dados:", err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchData();
-    }, []);
+    // Fetching é gerenciado autonomamente pelo React Query
 
     const openModal = (emp = null) => {
         if (emp) {
@@ -76,7 +71,7 @@ export const EmployeesSettings = () => {
             }
 
             setModalOpen(false);
-            fetchData();
+            queryClient.invalidateQueries({ queryKey: ['funcionarios'] });
         } catch (err) {
             console.error(err);
             alert("Não foi possível salvar os dados do funcionário.");
@@ -87,7 +82,7 @@ export const EmployeesSettings = () => {
         if (!window.confirm("Atenção! Deletar o funcionário é irreversível. Prosseguir?")) return;
         try {
             await api.delete(`/funcionarios/${id}`);
-            fetchData();
+            queryClient.invalidateQueries({ queryKey: ['funcionarios'] });
         } catch (err) {
             console.error(err);
             alert("Erro ao excluir. O funcionário pode ter históricos amarrados.");

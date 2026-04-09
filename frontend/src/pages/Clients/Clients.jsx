@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import DataTable from '../../components/ui/DataTable/DataTable';
 import { Button } from '../../components/ui/Button/Button';
 import Modal from '../../components/ui/Modal/Modal';
@@ -10,9 +11,29 @@ import { useDialog } from '../../contexts/DialogContext';
 
 const Clients = () => {
     const { showConfirm, showAlert } = useDialog();
+    const queryClient = useQueryClient();
+
+    // React Query: Cache Master de Clientes
+    const { data: clients = [], isLoading: loading, error: queryError, refetch: fetchClients } = useQuery({
+        queryKey: ['clients'],
+        queryFn: async () => {
+            const fetchWithTimeout = (promise, ms = 8000) => {
+                let timer = null;
+                const timeout = new Promise((_, reject) => {
+                    timer = setTimeout(() => reject(new Error('TIMEOUT')), ms);
+                });
+                return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+            };
+            const response = await fetchWithTimeout(api.get('/clientes'), 10000);
+            const data = response.data?.clients || response.data || [];
+            return Array.isArray(data) ? data : [];
+        },
+        staleTime: 5 * 60 * 1000, // 5 Minutos de sobrevida (fast loading UX)
+        retry: 2
+    });
+
     // Estados do Componente
-    const [clients, setClients] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [isMutating, setIsMutating] = useState(false);
     const [error, setError] = useState(null);
     const [successMsg, setSuccessMsg] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
@@ -208,79 +229,43 @@ const Clients = () => {
 
         if (!isConfirmed) return;
 
-        setLoading(true);
+        setIsMutating(true);
         try {
             await Promise.all(selectedIds.map(id => api.delete(`/clientes/${id}`)));
-            setClients(prev => prev.filter(c => !selectedIds.includes(c.id || c.id_interno)));
+            queryClient.setQueryData(['clients'], prev => 
+                (prev || []).filter(c => !selectedIds.includes(c.id || c.id_interno))
+            );
             setSelectedIds([]);
             showAlert({ title: 'Sucesso', message: 'Clientes removidos com sucesso.', variant: 'success' });
         } catch (err) {
             setError("Erro ao processar exclusão em massa.");
         } finally {
-            setLoading(false);
+            setIsMutating(false);
         }
     };
 
     const handleBulkStatus = async (active) => {
-        setLoading(true);
+        setIsMutating(true);
         try {
             await Promise.all(selectedIds.map(id => api.put(`/clientes/${id}`, { ativo: active })));
-            setClients(prev => prev.map(c => 
-                selectedIds.includes(c.id || c.id_interno) ? { ...c, ativo: active } : c
-            ));
+            queryClient.setQueryData(['clients'], prev => 
+                (prev || []).map(c => 
+                    selectedIds.includes(c.id || c.id_interno) ? { ...c, ativo: active } : c
+                )
+            );
             setSelectedIds([]);
             showAlert({ title: 'Sucesso', message: 'Status atualizados com sucesso.', variant: 'success' });
         } catch (err) {
             setError("Erro ao atualizar status em massa.");
         } finally {
-            setLoading(false);
+            setIsMutating(false);
         }
     };
-
-    // Efeito para buscar clientes assim que a tela abre
-    useEffect(() => {
-        fetchClients();
-    }, []);
 
     // Salvar preferência de ordenação no LocalStorage
     useEffect(() => {
         localStorage.setItem('clients-sort-order', sortOrder);
     }, [sortOrder]);
-
-    const fetchClients = async () => {
-        try {
-            setLoading(true);
-            setError(null);
-
-            // Timeout Wrapper para forçar queda de carregamento se a rede travar (Database Grace Period)
-            const fetchWithTimeout = (promise, ms = 8000) => {
-                let timer = null;
-                const timeout = new Promise((_, reject) => {
-                    timer = setTimeout(() => reject(new Error('TIMEOUT')), ms);
-                });
-                return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-            };
-
-            // Requisita a API Real usando os Headers de Autenticação Automáticos
-            const response = await fetchWithTimeout(api.get('/clients'), 10000);
-
-            // Certifique-se de prever o formato array retornado pela sua API 
-            // ex: response.data ou response.data.clients
-            const data = response.data?.clients || response.data || [];
-            if (Array.isArray(data)) {
-                setClients(data);
-            } else {
-                // Previne crash caso a API devolva algo diferente numa falha silenciosa
-                setClients([]);
-                console.warn("API retornou um formato inesperado para /clients:", data);
-            }
-        } catch (err) {
-            console.error("Erro ao buscar a lista de clientes:", err);
-            setError("Não foi possível carregar a lista de clientes. Tente atualizar a página.");
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const openCreateModal = () => {
         setSelectedClient(null);
@@ -310,8 +295,8 @@ const Clients = () => {
             confirmText: 'Ótimo'
         });
 
-        // Recarrega lista pela API para espelhar as mudanças do BD
-        fetchClients();
+        // Recarrega cache pela API
+        queryClient.invalidateQueries({ queryKey: ['clients'] });
     };
 
     const handleDeleteClient = async (client) => {
@@ -327,22 +312,18 @@ const Clients = () => {
         if (!isConfirmed) return;
 
         try {
-            // Achar ID certo
             const clientId = client.id || client.id_interno;
-
-            // Requisição
             await api.delete(`/clientes/${clientId}`);
 
-            // UI Otimista (Remove da lista instantaneamente sem fazer outro GET)
-            setClients(prevClients => prevClients.filter(c => (c.id || c.id_interno) !== clientId));
+            // UI Otimista para cache local
+            queryClient.setQueryData(['clients'], prev => 
+                (prev || []).filter(c => (c.id || c.id_interno) !== clientId)
+            );
 
-            // Feedback
             setSuccessMsg("Cliente removido com sucesso!");
             setTimeout(() => setSuccessMsg(''), 3500);
-
         } catch (err) {
             console.error("Erro ao deletar cliente:", err);
-            // Reutiliza o estado de erro local do form/lista da pagina inteira
             setError("Falha ao tentar remover este cliente. O servidor pode ter negado ou ele não existe mais.");
             setTimeout(() => setError(null), 6000);
         }
@@ -353,7 +334,12 @@ const Clients = () => {
             const newValue = !client.ativo;
             const clientId = client.id || client.id_interno;
             await api.put(`/clientes/${clientId}`, { ativo: newValue });
-            setClients(prev => prev.map(c => (c.id || c.id_interno) === clientId ? { ...c, ativo: newValue } : c));
+            
+            // UI Otimista / Invalidação Direta em Cache
+            queryClient.setQueryData(['clients'], prev => 
+                (prev || []).map(c => (c.id || c.id_interno) === clientId ? { ...c, ativo: newValue } : c)
+            );
+            
             setSuccessMsg(`Status do cliente atualizado com sucesso!`);
             setTimeout(() => setSuccessMsg(''), 3000);
         } catch (err) {
@@ -545,7 +531,7 @@ const Clients = () => {
             )}
 
             {/* Tratamento de Erro Limpo */}
-            {error && (
+            {(error || queryError) && (
                 <div style={{
                     backgroundColor: 'rgba(239, 68, 68, 0.1)',
                     borderLeft: '4px solid var(--danger)',
@@ -558,13 +544,12 @@ const Clients = () => {
                     gap: '10px'
                 }}>
                     <AlertTriangle color="var(--danger)" size={20} />
-                    <span>{error}</span>
+                    <span>{error || "Não foi possível resgatar os processos da API central."}</span>
                 </div>
-            )
-            }
+            )}
 
             <div style={{ marginTop: '2rem' }}>
-                {loading ? (
+                {(loading || isMutating) ? (
                     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '4rem' }}>
                         <div className="spinner-container">
                             <div className="loading-spinner"></div>

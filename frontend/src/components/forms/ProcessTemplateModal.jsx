@@ -37,7 +37,7 @@ export const ProcessTemplateModal = ({ isOpen, onClose, onSave, initialData }) =
             try {
                 const [profilesRes, deptsRes] = await Promise.all([
                     api.get('/funcionarios'),
-                    api.get('/departments').catch(() => ({ data: [] }))
+                    api.get('/setores').catch(() => ({ data: [] }))
                 ]);
 
                 const rawUsers = profilesRes.data?.funcionarios || (Array.isArray(profilesRes.data) ? profilesRes.data : []);

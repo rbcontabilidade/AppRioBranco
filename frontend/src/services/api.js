@@ -46,64 +46,9 @@ apiInstance.interceptors.response.use(
 );
 
 /*
- * Wrapper de Serviço Limpo
- * Facilita substituir o Axios futuramente sem quebrar os componentes.
- *
- * Mapeamento de rotas (frontend -> backend):
- *   /clients     -> /clientes
- *   /employees   -> /funcionarios
- *   /departments -> /setores
- *   /routines    -> /rotinas_base
- *   /profiles    -> /profiles  (endpoint real; falha normalmente se não existir)
+ * Instância da API Limpa (Substitui o wrapper legado)
  */
-export const api = {
-    get: async (url, config = {}) => {
-        // Mapear /clients -> /clientes
-        if (url === '/clients' || url.endsWith('/clients')) {
-            return apiInstance.get('/clientes', config);
-        }
-
-        // Mapear /employees -> /funcionarios
-        if (url === '/employees' || url.endsWith('/employees')) {
-            return apiInstance.get('/funcionarios', config);
-        }
-
-        // Mapear /profiles -> endpoint real do backend
-        if (url === '/profiles' || url.endsWith('/profiles')) {
-            return apiInstance.get('/profiles', config);
-        }
-
-        // Mapear /departments -> /setores
-        if (url === '/departments' || url.endsWith('/departments')) {
-            return apiInstance.get('/setores', config);
-        }
-
-        // Mapear /routines -> /rotinas_base
-        if (url === '/routines' || url.endsWith('/routines')) {
-            return apiInstance.get('/rotinas_base', config);
-        }
-
-        // Chamada nativa para todas as outras rotas
-        return apiInstance.get(url, config);
-    },
-
-    post: async (url, data, config = {}) => {
-        return apiInstance.post(url, data, config);
-    },
-
-    put: async (url, data, config = {}) => {
-        return apiInstance.put(url, data, config);
-    },
-
-    patch: async (url, data, config = {}) => {
-        return apiInstance.patch(url, data, config);
-    },
-
-    delete: (url, config = {}) => apiInstance.delete(url, config),
-
-    // Instância nativa exposta para casos que precisem de configurações avançadas
-    instance: apiInstance
-};
+export const api = apiInstance;
 
 /**
  * Serviço de Processos

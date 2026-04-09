@@ -114,56 +114,9 @@ export function AuthProvider({ children }) {
         isAdmin
     };
 
-    // Renderiza uma tela de carregamento premium enquanto verifica a sessão
-    if (loading) {
-        return (
-            <div style={{
-                height: '100vh',
-                width: '100vw',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexDirection: 'column',
-                background: 'var(--bg-base)',
-                backgroundImage: 'var(--bg-gradient)',
-                color: 'var(--text-main)',
-                fontFamily: 'Inter, sans-serif'
-            }}>
-                <div style={{
-                    position: 'relative',
-                    width: '80px',
-                    height: '80px',
-                    marginBottom: '20px'
-                }}>
-                    <div style={{
-                        position: 'absolute',
-                        width: '100%',
-                        height: '100%',
-                        border: '4px solid rgba(99, 102, 241, 0.1)',
-                        borderTop: '4px solid var(--primary-light)',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite'
-                    }}></div>
-                    <div style={{
-                        position: 'absolute',
-                        width: '70%',
-                        height: '70%',
-                        top: '15%',
-                        left: '15%',
-                        border: '4px solid rgba(99, 102, 241, 0.05)',
-                        borderBottom: '4px solid var(--accent)',
-                        borderRadius: '50%',
-                        animation: 'spin 1.5s linear infinite reverse'
-                    }}></div>
-                </div>
-                <h2 style={{ fontSize: '1.2rem', fontWeight: '600', opacity: 0.8 }}>FiscalApp</h2>
-                <p style={{ opacity: 0.5, fontSize: '0.9rem', marginTop: '8px' }}>Carregando sessao segura...</p>
-                <style>{`
-                    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-                `}</style>
-            </div>
-        );
-    }
+    // O block de renderização de Splash screen foi inteiramente removido do AuthContext
+    // para evitar quebras do React Router e falhas visuais. O controle "loading" 
+    // agora é devidamente tratado nos componentes (ex: PrivateRoute) ou transições locais.
 
     return (
         <AuthContext.Provider value={contextValue}>

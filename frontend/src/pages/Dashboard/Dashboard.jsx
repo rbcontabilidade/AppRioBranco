@@ -79,7 +79,7 @@ const Dashboard = () => {
         const loadFuncionarios = async () => {
             if (isAdmin) {
                 try {
-                    const res = await api.get('/employees');
+                    const res = await api.get('/funcionarios');
                     setFuncionarios(res.data || []);
                 } catch (err) {
                     console.error("Erro ao buscar funcionários:", err);
