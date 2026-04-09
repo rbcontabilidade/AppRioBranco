@@ -102,6 +102,24 @@ export function AuthProvider({ children }) {
         }
     };
 
+    /**
+     * Sincroniza o perfil local com o backend sem precisar deslogar.
+     * Útil após alterar nome ou foto no "Meu Perfil".
+     */
+    const refreshProfile = async () => {
+        try {
+            const response = await api.get('/auth/me');
+            if (response.data) {
+                const userData = response.data;
+                setUser({ id: userData.id, email: userData.nome });
+                setProfile(userData);
+                setPermissions(Array.isArray(userData.telas_permitidas) ? userData.telas_permitidas : []);
+            }
+        } catch (err) {
+            console.error("[Auth] Erto ao sincronizar perfil:", err);
+        }
+    };
+
     // Atualizado com base nas colunas da tabela funcionarios + is_admin do backend endpoint de login
     const isAdmin = profile?.permissao?.toLowerCase() === 'gerente' ||
         profile?.is_admin === true ||
@@ -115,6 +133,7 @@ export function AuthProvider({ children }) {
         loading,
         signIn,
         signOut,
+        refreshProfile,
         isAdmin
     };
 

@@ -1,10 +1,10 @@
-import React, { useState, useRef } from 'react';
-import { User, Lock, Camera, ShieldAlert } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { User, Lock, Camera, ShieldAlert, Loader2 } from 'lucide-react';
 import { GlassCard } from '../../components/ui/GlassCard/GlassCard';
 import { GlassInput } from '../../components/ui/GlassInput/GlassInput';
 import { Button } from '../../components/ui/Button/Button';
 import { useAuth } from '../../contexts/AuthContext';
-import api from '../../services/api';
+import { api } from '../../services/api';
 import { supabase } from '../../services/supabase';
 import { useDialog } from '../../contexts/DialogContext';
 import styles from './MyProfile.module.css';
@@ -13,12 +13,12 @@ import styles from './MyProfile.module.css';
  * Aba: Meu Perfil (Nova UX Premium)
  */
 const MyProfile = () => {
-    const { user } = useAuth();
+    const { profile, refreshProfile } = useAuth();
     const { showAlert } = useDialog();
 
     // Estado do Perfil
-    const [name, setName] = useState(user?.nome || '');
-    const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || null);
+    const [name, setName] = useState('');
+    const [avatarUrl, setAvatarUrl] = useState(null);
     const [loadingProfile, setLoadingProfile] = useState(false);
 
     // Estado da Senha
@@ -30,6 +30,14 @@ const MyProfile = () => {
     // Ref para upload oculto
     const fileInputRef = useRef(null);
 
+    // Sincroniza estados com o perfil logado
+    useEffect(() => {
+        if (profile) {
+            setName(profile.nome || '');
+            setAvatarUrl(profile.avatar_url || null);
+        }
+    }, [profile]);
+
     // Upload de Avatar
     const handleAvatarUpload = async (e) => {
         try {
@@ -37,54 +45,72 @@ const MyProfile = () => {
             const file = e.target.files[0];
 
             if (file.size > 2 * 1024 * 1024) {
-                showAlert({ title: 'Arquivo muito grande', message: 'Tamanho máximo permitido: 2MB.', variant: 'danger' });
+                showAlert({ 
+                    title: 'Arquivo muito grande', 
+                    message: 'Tamanho máximo permitido: 2MB.', 
+                    variant: 'danger' 
+                });
                 return;
             }
 
             setLoadingProfile(true);
             const fileExt = file.name.split('.').pop();
-            const filePath = `avatar-${user.id}-${Math.random()}.${fileExt}`;
+            const filePath = `avatars/${profile.id}/${Date.now()}.${fileExt}`;
 
+            // 1. Upload para o bucket
             const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file);
             if (uploadError) throw uploadError;
 
+            // 2. Coleta URL pública
             const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
 
-            setAvatarUrl(publicUrl);
+            // 3. Persiste no banco de dados via API Python
             await api.put('/auth/profile', { avatar_url: publicUrl });
+            
+            // 4. Sincroniza UI global
+            await refreshProfile();
 
-            const storedUser = JSON.parse(localStorage.getItem('user'));
-            if (storedUser) {
-                storedUser.avatar_url = publicUrl;
-                localStorage.setItem('user', JSON.stringify(storedUser));
-            }
-
-            showAlert({ title: 'Foto Atualizada', message: 'Sua foto de capa foi alterada com estilo.', variant: 'success' });
+            showAlert({ 
+                title: 'Foto Atualizada', 
+                message: 'Sua foto de perfil foi alterada com sucesso.', 
+                variant: 'success' 
+            });
         } catch (error) {
-            console.error(error);
-            showAlert({ title: 'Erro de Upload', message: error.message || 'Falha ao processar.', variant: 'danger' });
+            console.error('[AvatarUpload]', error);
+            showAlert({ 
+                title: 'Erro de Upload', 
+                message: error.message || 'Falha ao processar a imagem.', 
+                variant: 'danger' 
+            });
         } finally {
             setLoadingProfile(false);
-            e.target.value = null; // reset input
+            if (e.target) e.target.value = null; // reset input
         }
     };
 
-    // Salvar Perfil
+    // Salvar Nome do Perfil
     const handleSaveProfile = async () => {
+        if (!name.trim()) return;
+        
         try {
             setLoadingProfile(true);
-            await api.put('/auth/profile', { nome: name });
+            await api.put('/auth/profile', { nome: name.trim() });
+            
+            // Sincroniza UI global
+            await refreshProfile();
 
-            const storedUser = JSON.parse(localStorage.getItem('user'));
-            if (storedUser) {
-                storedUser.nome = name;
-                localStorage.setItem('user', JSON.stringify(storedUser));
-            }
-
-            showAlert({ title: 'Perfil Salvo', message: 'Nome de exibição atualizado no sistema.', variant: 'success' });
+            showAlert({ 
+                title: 'Perfil Salvo', 
+                message: 'Seu nome de exibição foi atualizado no sistema.', 
+                variant: 'success' 
+            });
         } catch (error) {
-            console.error(error);
-            showAlert({ title: 'Erro ao Salvar', message: error.response?.data?.detail || 'Falha ao atualizar.', variant: 'danger' });
+            console.error('[SaveProfile]', error);
+            showAlert({ 
+                title: 'Erro ao Salvar', 
+                message: error.response?.data?.detail || 'Falha ao atualizar nome.', 
+                variant: 'danger' 
+            });
         } finally {
             setLoadingProfile(false);
         }
@@ -93,17 +119,17 @@ const MyProfile = () => {
     // Alterar Senha
     const handleUpdatePassword = async () => {
         if (!currentPassword || !newPassword || !confirmPassword) {
-            showAlert({ title: 'Atenção', message: 'Preença todas as senhas para prosseguir.', variant: 'warning' });
+            showAlert({ title: 'Atenção', message: 'Preença todos os campos de senha.', variant: 'warning' });
             return;
         }
 
         if (newPassword !== confirmPassword) {
-            showAlert({ title: 'Atenção', message: 'Sua nova senha e confirmação não batem.', variant: 'warning' });
+            showAlert({ title: 'Atenção', message: 'A nova senha e a confirmação não coincidem.', variant: 'warning' });
             return;
         }
 
         if (newPassword.length < 6) {
-            showAlert({ title: 'Atenção', message: 'Mínimo de 6 caracteres na nova senha.', variant: 'warning' });
+            showAlert({ title: 'Atenção', message: 'A nova senha deve ter no mínimo 6 caracteres.', variant: 'warning' });
             return;
         }
 
@@ -117,11 +143,17 @@ const MyProfile = () => {
             setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');
-            showAlert({ title: 'Senha Atualizada', message: 'Segurança da conta reforçada com sucesso.', variant: 'success' });
+            
+            showAlert({ 
+                title: 'Senha Atualizada', 
+                message: 'Sua segurança foi reforçada. Use a nova senha no próximo acesso.', 
+                variant: 'success' 
+            });
 
         } catch (error) {
-            console.error(error);
-            showAlert({ title: 'Erro', message: error.response?.data?.detail || 'Algo deu errado.', variant: 'danger' });
+            console.error('[ChangePassword]', error);
+            const detail = error.response?.data?.detail || 'Não foi possível alterar a senha.';
+            showAlert({ title: 'Erro na Troca', message: detail, variant: 'danger' });
         } finally {
             setLoadingPassword(false);
         }
@@ -130,13 +162,14 @@ const MyProfile = () => {
     return (
         <div className={styles.profileContainer}>
 
-            {/* Capa e Avatar Embutido */}
+            {/* Banner de Capa (Estético) */}
             <div className={styles.coverBanner}></div>
 
+            {/* Seção do Avatar e Badge */}
             <div className={styles.avatarSection}>
                 <div
                     className={styles.avatarWrapper}
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => !loadingProfile && fileInputRef.current?.click()}
                     title="Mudar Foto de Perfil"
                 >
                     {avatarUrl ? (
@@ -149,9 +182,9 @@ const MyProfile = () => {
 
                     <div className={`${styles.avatarOverlay} ${loadingProfile ? styles.loading : ''}`}>
                         {loadingProfile ? (
-                            <span style={{ color: '#fff', fontSize: '0.8rem' }}>Up...</span>
+                            <Loader2 className={styles.spinIcon} size={28} color="#fff" />
                         ) : (
-                            <Camera size={32} color="#fff" />
+                            <Camera size={28} color="#fff" />
                         )}
                     </div>
                 </div>
@@ -160,7 +193,7 @@ const MyProfile = () => {
                     <h2 className={styles.userNameLabel}>{name || 'Usuário'}</h2>
                     <span className={styles.userRoleBadge}>
                         <ShieldAlert size={14} />
-                        {user?.permissao || 'Colaborador'}
+                        {profile?.permissao || 'Colaborador'}
                     </span>
                 </div>
             </div>
@@ -173,11 +206,11 @@ const MyProfile = () => {
                 onChange={handleAvatarUpload}
             />
 
-            {/* Containers Empilhados de Configurações */}
+            {/* Formulários de Configuração */}
             <div className={styles.formSections}>
 
-                {/* BLOCO 1: Informações Pessoais */}
-                <GlassCard style={{ padding: '32px' }}>
+                {/* Bloco: Dados Pessoais */}
+                <GlassCard className={styles.cardPadding}>
                     <div className={styles.sectionBlock}>
                         <div className={styles.sectionHeader}>
                             <div className={styles.sectionHeaderIcon}>
@@ -194,45 +227,50 @@ const MyProfile = () => {
                                 label="Nome de Exibição"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                placeholder="Nome completo ou apelido"
+                                placeholder="Seu nome completo"
                                 icon="fa-solid fa-user-tag"
                             />
                             <GlassInput
                                 label="Email Corporativo"
-                                value={user?.email || ''}
+                                value={profile?.email || 'vazio@riobranco.com'}
                                 icon="fa-regular fa-envelope"
                                 readOnly
+                                disabled
                             />
                         </div>
 
                         <div className={styles.actionFooter}>
-                            <Button variant="primary" onClick={handleSaveProfile} disabled={loadingProfile || !name}>
-                                {loadingProfile ? 'Registrando...' : 'Salvar Alterações'}
+                            <Button 
+                                variant="primary" 
+                                onClick={handleSaveProfile} 
+                                disabled={loadingProfile || !name || name === profile?.nome}
+                            >
+                                {loadingProfile ? 'Salvando...' : 'Atualizar Informações'}
                             </Button>
                         </div>
                     </div>
                 </GlassCard>
 
-                {/* BLOCO 2: Segurança */}
-                <GlassCard style={{ padding: '32px' }}>
+                {/* Bloco: Segurança (Troca de Senha) */}
+                <GlassCard className={styles.cardPadding}>
                     <div className={styles.sectionBlock}>
                         <div className={styles.sectionHeader}>
                             <div className={styles.sectionHeaderIcon} style={{ color: 'var(--success)' }}>
                                 <Lock size={20} />
                             </div>
                             <div>
-                                <h3>Credenciais de Acesso</h3>
-                                <p>Você pode alterar sua senha a qualquer momento.</p>
+                                <h3>Segurança da Conta</h3>
+                                <p>Mantenha sua senha atualizada para proteger seus dados.</p>
                             </div>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px', maxWidth: '600px' }}>
+                        <div className={styles.passwordFormWrapper}>
                             <GlassInput
                                 label="Senha Atual"
                                 type="password"
                                 value={currentPassword}
                                 onChange={(e) => setCurrentPassword(e.target.value)}
-                                placeholder="Digite para autorizar a troca"
+                                placeholder="••••••••"
                                 icon="fa-solid fa-key"
                             />
                             <div className={styles.inputGrid}>
@@ -241,11 +279,11 @@ const MyProfile = () => {
                                     type="password"
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
-                                    placeholder="No mínimo 6 caracteres"
-                                    icon="fa-solid fa-shield"
+                                    placeholder="No mínimo 6 dígitos"
+                                    icon="fa-solid fa-shield-halved"
                                 />
                                 <GlassInput
-                                    label="Confirmar Senha"
+                                    label="Confirmar Nova Senha"
                                     type="password"
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -262,13 +300,12 @@ const MyProfile = () => {
                                 onClick={handleUpdatePassword}
                                 disabled={loadingPassword || !newPassword || !currentPassword || !confirmPassword}
                             >
-                                {loadingPassword ? 'Validando...' : 'Mudar Minha Senha'}
+                                {loadingPassword ? 'Processando...' : 'Alterar Senha de Acesso'}
                             </Button>
                         </div>
                     </div>
                 </GlassCard>
             </div>
-
         </div>
     );
 };
