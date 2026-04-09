@@ -21,23 +21,32 @@ app = FastAPI(title="FiscalApp API")
 
 # Middlewares
 # Definindo as origens explicitas para ambiente de producao
+# Adicionamos suporte a subdomínios da Vercel para evitar bloqueio em deploys de preview
 frontend_prod_url = os.getenv("FRONTEND_URL", "https://app-rio-branco.vercel.app") 
+
+allowed_origins = [
+    "http://localhost:3000",
+    "http://localhost:5500",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5500",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+    "http://127.0.0.1:5175",
+    frontend_prod_url,
+    "https://app-rio-branco.vercel.app" # Backup explicito
+]
+
+# Tenta ler outras origens separadas por vírgula se houver
+ extra_origins = os.getenv("ALLOWED_ORIGINS")
+ if extra_origins:
+     allowed_origins.extend([o.strip() for o in extra_origins.split(",")])
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5500",
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:5175",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5500",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-        "http://127.0.0.1:5175",
-        frontend_prod_url
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

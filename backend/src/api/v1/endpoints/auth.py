@@ -111,14 +111,18 @@ async def login(response: Response, form_data: LoginRequest):
         
         access_token = create_access_token(data=token_data)
         
-        # Define o cookie seguro (HttpOnly por padrão no seu middleware se aplicável, mas aqui faremos explícito)
+        # Define o cookie seguro
+        # IMPORTANTE: secure=True é OBRIGATÓRIO em HTTPS (Produção/Vercel) para o cookie ser aceito.
+        # Em localhost o browser permite False, mas para evitar bugs online vamos elevar.
+        is_prod = os.getenv("FRONTEND_URL", "").startswith("https")
+        
         response.set_cookie(
             key="access_token", 
             value=f"Bearer {access_token}", 
-            httponly=False, # Definido como False para compatibilidade com o fetch simples se necessário
-            max_age=1440 * 60, # 24 horas em segundos
-            samesite="lax",
-            secure=False # Em localhost (HTTP) deve ser False
+            httponly=False, 
+            max_age=1440 * 60, 
+            samesite="lax" if not is_prod else "none",
+            secure=True if is_prod else False 
         )
         
         return {
@@ -169,8 +173,10 @@ async def get_me(user_info: tuple = Depends(get_current_user_from_cookie)):
                   except: tt = []
               telas = tt
     
-    # Garantir telas mínimas para evitar loop de redirecionamento no frontend
-    for t_base in ["dashboard", "settings"]:
+    # Garantir telas mínimas para garantir que o funcionário NUNCA caia no loop de redirecionamento 
+    # caso as permissões do cargo estejam vazias no banco de dados.
+    default_screens = ["dashboard", "settings", "meu-desempenho"]
+    for t_base in default_screens:
         if t_base not in telas:
             telas.append(t_base)
     

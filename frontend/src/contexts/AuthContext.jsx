@@ -32,7 +32,10 @@ export function AuthProvider({ children }) {
                     setPermissions(Array.isArray(userData.telas_permitidas) ? userData.telas_permitidas : []);
                 }
             } catch (err) {
-                console.warn("[Auth] Sessão ausente na inicialização:", err?.message || err);
+                console.warn("[Auth] Sessão ausente ou erro na rede:", err?.message || err);
+                if (err.response) {
+                    console.error("[Auth] Status do servidor:", err.response.status, err.response.data);
+                }
                 if (mounted) {
                     setUser(null);
                     setProfile(null);
@@ -43,6 +46,7 @@ export function AuthProvider({ children }) {
                 if (mounted) {
                     setLoading(false);
                     clearTimeout(timeoutId);
+                    console.log("[Auth] Inicialização concluída. User:", user ? "Logado" : "Deslogado");
                 }
             }
         }

@@ -49,18 +49,28 @@ const PrivateRoute = ({ children }) => {
         // 1. Se for admin, tem acesso total
         if (isAdmin) return children;
 
-        // 2. Se a tela for restrita a admin e o usuário não for, bloqueia
-        // 3. Se a tela exigir permissão específica e o usuário não tiver, bloqueia
-        const isRestricted = (currentScreen.adminOnly && !isAdmin) || 
-                            (currentScreen.id && !permissions.includes(currentScreen.id));
+        // 2. Se a tela exigir permissão específica e o usuário não tiver, bloqueia
+        // Nota: 'dashboard' agora é injetado pelo backend para todos, mas aqui garantimos redundância
+        const isPermitted = permissions.includes(currentScreen.id) || currentScreen.id === 'dashboard';
 
-        if (isRestricted) {
-            console.warn(`[RouteGuard] Acesso negado para rota: ${currentPath}`);
+        if (!isPermitted) {
+            console.warn(`[RouteGuard] Acesso negado para rota: ${currentPath}. Permissões atuais:`, permissions);
             
-            // Se já estamos no dashboard ou na raiz e fomos negados (bug de permissão grave), 
-            // redirecionamos para login para limpar a sessão em vez de causar loop.
+            // Se o usuário está logado mas não tem permissão para a HOME (/), 
+            // não podemos redirecionar para /login (causa loop). 
+            // Mostramos uma mensagem de erro ou redirecionamos para 'Meu Desempenho' que é neutro.
             if (currentPath === '/' || currentPath === '/dashboard') {
-                return <Navigate to="/login" replace />;
+                if (permissions.includes('meu-desempenho')) {
+                    return <Navigate to="/performance/me" replace />;
+                }
+                return (
+                    <div style={{ padding: '40px', textAlign: 'center', color: '#ef4444' }}>
+                        <h1>Acesso Restrito</h1>
+                        <p>Seu usuário não possui permissão para acessar o Dashboard Principal.</p>
+                        <p>Contate o administrador para liberar seu cargo.</p>
+                        <button onClick={() => window.location.href='/login'} style={{ marginTop: '20px' }}>Voltar</button>
+                    </div>
+                );
             }
             
             return <Navigate to="/" replace />;
