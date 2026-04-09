@@ -46,8 +46,16 @@ def get_logs(user=CurrentUser):
     return MiscCRUD.get_logs().data
 
 @router.post("/logs")
-def create_log(log: LogCreate, user=CurrentUser):
-    return MiscCRUD.create_log(log.model_dump()).data
+def create_log(log: LogCreate, user_info=CurrentUser):
+    user_id, payload = user_info
+    
+    # Previne API Spoofing (Forjamento de identidade no client)
+    # Extrai o nome e permissao confiaveis direto das Claims do JWT
+    safe_data = log.model_dump()
+    safe_data["user_name"] = payload.get("nome", "Desconhecido")
+    safe_data["permissao"] = payload.get("role", "Desconhecido")
+    
+    return MiscCRUD.create_log(safe_data).data
 
 # Cargos
 @router.get("/cargos_permissoes")

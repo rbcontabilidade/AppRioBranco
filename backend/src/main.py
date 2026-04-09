@@ -15,10 +15,14 @@ load_dotenv()
 
 from src.core.database import supabase, supabase_admin, supabase_error, url
 from src.api.v1.endpoints import auth, clientes, funcionarios, setores, meses, execucoes, misc, processos, performance
+from src.api.v1.endpoints.auth import get_current_user_from_cookie
 
 app = FastAPI(title="FiscalApp API")
 
 # Middlewares
+# Definindo as origens explicitas para ambiente de producao
+frontend_prod_url = os.getenv("FRONTEND_URL", "https://app-rio-branco.vercel.app") 
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -32,8 +36,8 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
         "http://127.0.0.1:5175",
+        frontend_prod_url
     ],
-    allow_origin_regex=r"https://.*\.vercel\.app.*|https://.*\.hf\.space.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -97,8 +101,14 @@ def debug_info():
     }
 
 @app.get("/api/backup/download")
-def download_backup():
-    """Exporta todas as tabelas do banco de dados Supabase em formato JSON."""
+def download_backup(user_info: tuple = Depends(get_current_user_from_cookie)):
+    """Exporta todas as tabelas do banco de dados Supabase em formato JSON. Restrito a Admins."""
+    user_id, payload = user_info
+    role = payload.get("role", "")
+    
+    if role.lower() not in ["admin", "gerente"]:
+        raise HTTPException(status_code=403, detail="Acesso negado. O download do banco de dados é restrito a administradores.")
+
     from datetime import datetime, timezone
     client = supabase_admin if supabase_admin else supabase
     if not client:

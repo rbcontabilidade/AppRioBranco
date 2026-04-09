@@ -9,7 +9,7 @@ load_dotenv()
 url: str = os.getenv("SUPABASE_URL", "")
 key: str = os.getenv("SUPABASE_KEY", "")
 # Importante: O Backend deve usar a SERVICE_ROLE_KEY para ignorar RLS e funcionar como Admin
-service_key: str = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_KEY", "")
+service_key: str = os.getenv("SUPABASE_SERVICE_KEY")
 
 supabase = None
 supabase_admin = None
@@ -20,6 +20,8 @@ print(f"Tentando conectar ao Supabase em: {url}")
 try:
     if not url or not key:
         raise ValueError("SUPABASE_URL ou SUPABASE_KEY não configuradas no .env")
+    if not service_key:
+        raise ValueError("CRÍTICO: SUPABASE_SERVICE_KEY não está definida. O Backend abortou para não operar com privilégios reduzidos e mascarar falhas no RLS do Database.")
         
     supabase = create_client(url, key)
     supabase_admin = create_client(url, service_key)
