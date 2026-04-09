@@ -191,7 +191,7 @@ async def get_me(user_info: tuple = Depends(get_current_user_from_cookie)):
             if t not in telas:
                 telas.append(t)
             
-return {
+    return {
         "id": user["id"],
         "nome": user["nome"],
         "permissao": user_role,
