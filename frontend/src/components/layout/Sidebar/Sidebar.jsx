@@ -18,6 +18,15 @@ const Sidebar = ({ isCollapsed }) => {
     const navigate = useNavigate();
     const menuRef = useRef(null);
 
+    // DEBUG: Sabermos o que o servidor mandou para este usuário
+    useEffect(() => {
+        if (permissions && permissions.length > 0) {
+            console.log(`[Sidebar] Permissões carregadas:`, permissions);
+        } else if (profile) {
+            console.warn(`[Sidebar] Usuário logado (${profile.nome}), mas PERMISSÕES VAZIAS!`);
+        }
+    }, [permissions, profile]);
+
     const toggleUserMenu = () => setIsUserMenuOpen(!isUserMenuOpen);
 
     // Fecha o menu ao clicar fora dele

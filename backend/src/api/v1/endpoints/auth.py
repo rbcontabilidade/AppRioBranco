@@ -113,7 +113,6 @@ async def login(response: Response, form_data: LoginRequest):
         
         # Define o cookie seguro
         # IMPORTANTE: secure=True é OBRIGATÓRIO em HTTPS (Produção/Vercel) para o cookie ser aceito.
-        # Em localhost o browser permite False, mas para evitar bugs online vamos elevar.
         is_prod = os.getenv("FRONTEND_URL", "").startswith("https")
         
         response.set_cookie(
@@ -161,35 +160,38 @@ async def get_me(user_info: tuple = Depends(get_current_user_from_cookie)):
         
     user = user_res.data[0]
     
-    telas = ["operacional", "meu-desempenho"]
+        # 1. Base de telas garantidas para qualquer funcionário ativo
+    default_screens = ["dashboard", "settings", "meu-desempenho", "clientes"]
     
-    if str(user.get("cargo_id")) != "None" and user.get("cargo_id"):
-         cargos_res = supabase.table("cargos_permissoes").select("telas_permitidas").eq("id", user["cargo_id"]).execute()
-         if cargos_res.data:
-              tt = cargos_res.data[0].get("telas_permitidas", [])
-              if isinstance(tt, str):
-                  import json
-                  try: tt = json.loads(tt) 
-                  except: tt = []
-              telas = tt
-    
-    # Garantir telas mínimas para garantir que o funcionário NUNCA caia no loop de redirecionamento 
-    # caso as permissões do cargo estejam vazias no banco de dados.
-    default_screens = ["dashboard", "settings", "meu-desempenho"]
-    for t_base in default_screens:
-        if t_base not in telas:
-            telas.append(t_base)
+    # 2. Busca permissões específicas do Cargo
+    cargo_telas = []
+    if user.get("cargo_id"):
+        try:
+            cargos_res = supabase.table("cargos_permissoes").select("telas_permitidas").eq("id", user["cargo_id"]).execute()
+            if cargos_res.data:
+                tt = cargos_res.data[0].get("telas_permitidas", [])
+                if isinstance(tt, str):
+                    import json
+                    try: tt = json.loads(tt)
+                    except: tt = []
+                cargo_telas = tt if isinstance(tt, list) else []
+        except Exception as e:
+            print(f"[Auth] Erro ao carregar telas do cargo: {e}")
+
+    # 3. Faz o Merge (União sem duplicados)
+    telas = list(set(cargo_telas + default_screens))
     
     user_role = user.get("permissao", "Operacional")
     is_gerente = user_role.lower() in ["gerente", "supervisor"]
     is_admin = user_role.lower() == "admin" or user.get("nome", "").lower() == "manager"
     
     if is_gerente or is_admin:
-        todas = ['dashboard', 'operacional', 'clientes', 'equipe', 'rotinas', 'marketing', 'settings', 'competencias', 'meu-desempenho']
+        todas = ['dashboard', 'operacional', 'clientes', 'equipe', 'rotinas', 'marketing', 'settings', 'competencias', 'meu-desempenho', 'executive']
         for t in todas:
-            if t not in telas: telas.append(t)
+            if t not in telas:
+                telas.append(t)
             
-    return {
+return {
         "id": user["id"],
         "nome": user["nome"],
         "permissao": user_role,
