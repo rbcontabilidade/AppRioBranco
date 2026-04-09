@@ -1,10 +1,11 @@
+import os
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from typing import Optional
 
 # Importar cliente Supabase desacoplado
-from src.core.database import supabase
+from src.core.database import supabase, supabase_admin
 from src.core.security import verify_password, create_access_token, decode_access_token
 
 router = APIRouter(prefix="/api/auth", tags=["AutenticaÃ§Ã£o"])
@@ -149,47 +150,42 @@ async def logout(response: Response):
 
 @router.get("/me")
 async def get_me(user_info: tuple = Depends(get_current_user_from_cookie)):
-    """Verifica se o token ainda Ã© vÃ¡lido ou recarrega informaÃ§Ãµes essenciais da sessÃ£o"""
+    """Verifica se o token ainda é válido e retorna perfil + permissões baseadas no cargo."""
     user_id, payload = user_info
     
+    # Usa supabase_admin para contornar RLS na leitura de dados internos
+    client = supabase_admin if supabase_admin else supabase
+    
     # Busca dados atualizados do funcionário
-    user_res = supabase.table("funcionarios").select("id, nome, ativo, cargo_id, permissao, avatar_url").eq("id", user_id).execute()
+    user_res = client.table("funcionarios").select("id, nome, ativo, cargo_id, permissao, avatar_url").eq("id", user_id).execute()
     
     if not user_res.data:
-        raise HTTPException(status_code=404, detail="UsuÃ¡rio nÃ£o encontrado")
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
         
     user = user_res.data[0]
     
-        # 1. Base de telas garantidas para qualquer funcionário ativo
-    default_screens = ["dashboard", "settings", "meu-desempenho", "clientes"]
-    
-    # 2. Busca permissões específicas do Cargo
-    cargo_telas = []
+    # ── Permissões: lidas EXCLUSIVAMENTE do cargo no banco ──
+    # O admin configura quais telas cada cargo pode ver pela UI de Configurações.
+    telas = []
     if user.get("cargo_id"):
         try:
-            cargos_res = supabase.table("cargos_permissoes").select("telas_permitidas").eq("id", user["cargo_id"]).execute()
+            cargos_res = client.table("cargos_permissoes").select("telas_permitidas").eq("id", user["cargo_id"]).execute()
             if cargos_res.data:
                 tt = cargos_res.data[0].get("telas_permitidas", [])
                 if isinstance(tt, str):
                     import json
                     try: tt = json.loads(tt)
                     except: tt = []
-                cargo_telas = tt if isinstance(tt, list) else []
+                telas = tt if isinstance(tt, list) else []
         except Exception as e:
             print(f"[Auth] Erro ao carregar telas do cargo: {e}")
 
-    # 3. Faz o Merge (União sem duplicados)
-    telas = list(set(cargo_telas + default_screens))
+    # Fallback mínimo: dashboard e settings SEMPRE, para evitar tela branca/loop
+    for fallback in ["dashboard", "settings"]:
+        if fallback not in telas:
+            telas.append(fallback)
     
     user_role = user.get("permissao", "Operacional")
-    is_gerente = user_role.lower() in ["gerente", "supervisor"]
-    is_admin = user_role.lower() == "admin" or user.get("nome", "").lower() == "manager"
-    
-    if is_gerente or is_admin:
-        todas = ['dashboard', 'operacional', 'clientes', 'equipe', 'rotinas', 'marketing', 'settings', 'competencias', 'meu-desempenho', 'executive']
-        for t in todas:
-            if t not in telas:
-                telas.append(t)
             
     return {
         "id": user["id"],

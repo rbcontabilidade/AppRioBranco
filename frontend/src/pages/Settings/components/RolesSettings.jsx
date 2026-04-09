@@ -505,7 +505,7 @@ const RolesSettings = () => {
                                                                 {isPermitted ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
                                                             </div>
                                                             <div className={styles.permInfo}>
-                                                                <span className={styles.permName}>{screen.label}</span>
+                                                                <span className={styles.permName}>{screen.name}</span>
                                                                 <span className={styles.permStatus}>
                                                                     {isPermitted ? 'Permitido' : 'Bloqueado'}
                                                                 </span>
@@ -678,7 +678,7 @@ const RolesSettings = () => {
                                                 checked={formData.telas_permitidas.includes(screen.id)}
                                                 readOnly
                                             />
-                                            <span className={styles.checkLabel}>{screen.label}</span>
+                                            <span className={styles.checkLabel}>{screen.name}</span>
                                         </div>
                                     ))}
                                 </div>
