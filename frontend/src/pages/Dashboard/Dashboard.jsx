@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import KpiCard from '../../components/ui/KpiCard/KpiCard';
 import { GlassCard } from '../../components/ui/GlassCard/GlassCard';
 import { Button } from '../../components/ui/Button/Button';
@@ -20,7 +21,7 @@ const Dashboard = () => {
     });
 
     const [tasks, setTasks] = useState([]);
-    const [loading, setLoading] = useState(true);
+    // const [loading, setLoading] = useState(true); // Removido, agora usando isLoading: loading do react-query
     const [isCompletingId, setIsCompletingId] = useState(null);
     const [error, setError] = useState(null);
 
@@ -90,12 +91,10 @@ const Dashboard = () => {
         loadFuncionarios();
     }, [isAdmin]);
 
-    const fetchDashboardData = async () => {
-        try {
-            setLoading(true);
-            setError(null);
-
-            // Timeout Wrapper para forçar queda de carregamento se a rede travar (Database Grace Period)
+    // Utilizando React Query para cache, paginação virtual e eliminação do OOM na hidratação
+    const { data: dashboardData, isLoading: loading, error: queryError, refetch: fetchDashboardData } = useQuery({
+        queryKey: ['dashboard', selectedComp, isAdmin ? selectedFunc : profile?.id],
+        queryFn: async () => {
             const fetchWithTimeout = (promise, ms = 8000) => {
                 let timer = null;
                 const timeout = new Promise((_, reject) => {
@@ -104,7 +103,6 @@ const Dashboard = () => {
                 return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
             };
 
-            // Processamento Principal em Paralelo (Visibilidade por Perfil)
             const tasksPromise = processService.getAllTasks(selectedComp, isAdmin ? selectedFunc : profile?.id);
 
             const [kpisResponse, tasksResponse, compResponse] = await fetchWithTimeout(
@@ -113,7 +111,7 @@ const Dashboard = () => {
                         params: {
                             competencia_id: selectedComp,
                             funcionario_id: isAdmin ? selectedFunc : profile?.id,
-                            global_view: isAdmin // Apenas administradores veem KPIs globais por padrão
+                            global_view: isAdmin
                         }
                     }).catch(() => ({ data: {} })),
                     tasksPromise,
@@ -121,66 +119,55 @@ const Dashboard = () => {
                 ]), 10000
             );
 
+            let kpisObj = { total: 0, concluidos: 0, pendentes: 0, emAndamento: 0, atrasados: 0 };
+            let tasksList = [];
+            
             if (tasksResponse.data) {
-                const tasksList = tasksResponse.data;
+                tasksList = tasksResponse.data;
                 const total = tasksList.length;
                 const concluidas = tasksList.filter(t => t.status === 'CONCLUIDA').length;
                 const emAndamento = tasksList.filter(t => t.status === 'EM ANDAMENTO').length;
                 const pendentes = tasksList.filter(t => t.status === 'PENDENTE').length;
 
-                // Cálculo de atrasados simplificado base na due_date
                 const hoje = new Date();
                 hoje.setHours(0, 0, 0, 0);
 
                 const atrasadas = tasksList.filter(t => {
                     if (t.status === 'CONCLUIDA' || !t.due_date) return false;
-                    
                     const parts = t.due_date.split('/');
                     let date;
-                    
                     if (parts.length === 2) {
-                        // Formato D/MM ou DD/MM - assume o ano atual
                         date = new Date(hoje.getFullYear(), parts[1] - 1, parts[0]);
                     } else if (parts.length === 3) {
-                        // Formato DD/MM/YYYY
                         date = new Date(parts[2], parts[1] - 1, parts[0]);
                     } else {
                         return false;
                     }
-
                     return date < hoje;
                 }).length;
 
-                setKpis({
-                    total,
-                    concluidos: concluidas,
-                    pendentes,
-                    emAndamento,
-                    atrasados: atrasadas
-                });
-                setTasks(tasksList || []);
-                console.log('DEBUG DASHBOARD - Tarefas recebidas:', tasksList?.length);
-                if (tasksList?.length > 0) {
-                    console.log('DEBUG DASHBOARD - Amostra (Task 0):', tasksList[0]);
-                }
+                kpisObj = { total, concluidos: concluidas, pendentes, emAndamento, atrasados: atrasadas };
             }
 
-            if (compResponse) {
-                setCompetencia(compResponse);
-            }
+            return {
+                tasks: tasksList,
+                kpis: kpisObj,
+                competencia: compResponse || null,
+            };
+        },
+        enabled: !!selectedComp // O query só dispara se já sabemos a competência
+    });
 
-        } catch (err) {
-            console.error("Erro ao carregar dados do Dashboard:", err);
-            setError("Os dados demoraram a responder ou a conexão falhou. Verifique sua rede e tente novamente.");
-            setTasks([]);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const errorToDisplay = error || (queryError ? "Falha na conexão ou Timeout. Tente novamente." : null);
 
+    // Mapeamos de volta para manter compatibilidade com o resto do código da view
     useEffect(() => {
-        fetchDashboardData();
-    }, [selectedComp, selectedFunc]);
+        if (dashboardData) {
+            setTasks(dashboardData.tasks);
+            setKpis(dashboardData.kpis);
+            setCompetencia(dashboardData.competencia);
+        }
+    }, [dashboardData]);
 
     // Persistindo estados de expansão no localStorage
     useEffect(() => {
@@ -681,7 +668,7 @@ const Dashboard = () => {
 
 
             {/* Tratamento Discreto de Erro (Toast-like local) */}
-            {error && (
+            {errorToDisplay && (
                 <div style={{
                     backgroundColor: 'rgba(239, 68, 68, 0.1)',
                     borderLeft: '4px solid var(--danger)',
@@ -694,7 +681,7 @@ const Dashboard = () => {
                     gap: '10px'
                 }}>
                     <AlertTriangle color="var(--danger)" size={20} />
-                    <span>{error}</span>
+                    <span>{errorToDisplay}</span>
                 </div>
             )
             }

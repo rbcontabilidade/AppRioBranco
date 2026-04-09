@@ -659,6 +659,14 @@ async def listar_tarefas_me(funcionario_id: int, competencia_id: Optional[int] =
 async def listar_tarefas_admin(competencia_id: Optional[int] = None, funcionario_id: Optional[int] = None, only_mine: bool = False):
     """Lista todas as tarefas para visão administrativa com indicadores otimizados e ordenação dinâmica"""
     try:
+        valid_exec_ids = []
+        if competencia_id:
+            logger.info(f"Otimização OOM Ativada: Limitando pré-busca de tarefas para a Competência {competencia_id}")
+            res_execs = supabase.table("rh_execucao_processos").select("id").eq("competencia_id", competencia_id).execute()
+            valid_exec_ids = [r['id'] for r in (res_execs.data or [])]
+            if not valid_exec_ids:
+                return [] # Retorna vazio instantaneamente se não houver processos na competência.
+
         # Busca tarefas com detalhes e contagem de progresso via join com a view
         query = supabase.table("rh_execucao_tarefas").select(
             "*, "
@@ -671,6 +679,9 @@ async def listar_tarefas_admin(competencia_id: Optional[int] = None, funcionario
             "rh_execucao_tarefas_responsaveis(funcionario_id, funcionarios(nome))"
         )
         
+        if valid_exec_ids:
+            query = query.in_("execucao_processo_id", valid_exec_ids)
+            
         res = query.execute()
         
         all_tasks = res.data or []

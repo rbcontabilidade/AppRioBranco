@@ -12,18 +12,33 @@ import App from './App.jsx';
 // Initialize Vercel Speed Insights
 injectSpeedInsights();
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+// Configure QueryClient globalmente para evitar retries infinitos e refetches excessivos na UI
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            refetchOnWindowFocus: false,
+            retry: 1,
+            staleTime: 5 * 60 * 1000, // Dados permanecem frescos por 5 minutos
+        },
+    },
+});
+
 const container = document.getElementById('react-root');
 if (container) {
     const root = createRoot(container);
     root.render(
         <React.StrictMode>
-            <AuthProvider>
-                <DialogProvider>
-                    <GlobalDialog />
-                    <Toast />
-                    <App />
-                </DialogProvider>
-            </AuthProvider>
+            <QueryClientProvider client={queryClient}>
+                <AuthProvider>
+                    <DialogProvider>
+                        <GlobalDialog />
+                        <Toast />
+                        <App />
+                    </DialogProvider>
+                </AuthProvider>
+            </QueryClientProvider>
         </React.StrictMode>
     );
     console.log("React inicializado com sucesso.");
