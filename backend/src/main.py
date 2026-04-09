@@ -40,9 +40,9 @@ allowed_origins = [
 ]
 
 # Tenta ler outras origens separadas por vírgula se houver
- extra_origins = os.getenv("ALLOWED_ORIGINS")
- if extra_origins:
-     allowed_origins.extend([o.strip() for o in extra_origins.split(",")])
+extra_origins = os.getenv("ALLOWED_ORIGINS")
+if extra_origins:
+    allowed_origins.extend([o.strip() for o in extra_origins.split(",")])
 
 app.add_middleware(
     CORSMiddleware,

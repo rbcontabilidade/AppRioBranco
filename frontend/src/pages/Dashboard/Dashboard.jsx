@@ -454,7 +454,7 @@ const Dashboard = () => {
                                         : '1px solid rgba(59,130,246,0.2)',
                             whiteSpace: 'nowrap'
                         }}>
-                            {isCompleted ? '✓ Concluído' : isLocked ? '🔒 Bloqueado' : isInProgress ? '▶ Andamento' : '● Pendente'}
+                            {isCompleted ? 'Concluido' : isLocked ? 'Bloqueado' : isInProgress ? 'Andamento' : 'Pendente'}
                         </div>
                     </div>
                 </div>

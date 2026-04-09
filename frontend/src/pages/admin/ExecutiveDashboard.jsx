@@ -319,7 +319,7 @@ const ExecutiveDashboard = () => {
                     {/* Lista de tarefas vencendo hoje */}
                     {!loading && prazos.hoje?.length > 0 && (
                         <>
-                            <p className={styles.prazosHojeLabel}>⚠ Vencem hoje:</p>
+                            <p className={styles.prazosHojeLabel}>Vencem hoje:</p>
                             <div className={styles.prazosHojeLista}>
                                 {prazos.hoje.slice(0, 4).map(t => (
                                     <div key={t.tarefa_id} className={styles.prazosHojeItem}>
@@ -368,7 +368,7 @@ const ExecutiveDashboard = () => {
                             </table>
                         </div>
                     ) : (
-                        <p className={styles.empty}>✅ Nenhum processo com tarefas atrasadas!</p>
+                        <p className={styles.empty}>Nenhum processo com tarefas atrasadas!</p>
                     )}
 
                     {/* Processos parados */}
@@ -469,9 +469,9 @@ const ExecutiveDashboard = () => {
                                     <div className={styles.rankingInfo}>
                                         <div className={styles.rankingNome}>{func.nome}</div>
                                         <div className={styles.rankingStats}>
-                                            <span style={{ color: '#10b981' }}>✓ {func.concluidas}</span>
-                                            <span style={{ color: '#f59e0b' }}>⏳ {func.pendentes + func.em_andamento}</span>
-                                            {func.atrasadas > 0 && <span style={{ color: '#ef4444' }}>⚠ {func.atrasadas}</span>}
+                                            <span style={{ color: '#10b981' }}>{func.concluidas} concluidas</span>
+                                            <span style={{ color: '#f59e0b' }}>{func.pendentes + func.em_andamento} pendentes</span>
+                                            {func.atrasadas > 0 && <span style={{ color: '#ef4444' }}>{func.atrasadas} atrasadas</span>}
                                         </div>
                                     </div>
                                     <div className={styles.rankingScoreWrap}>

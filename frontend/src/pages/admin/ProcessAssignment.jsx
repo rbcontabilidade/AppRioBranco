@@ -108,7 +108,7 @@ export const ProcessAssignment = () => {
             const atribuidos = (resAtribuidos.data || []).map(id => Number(id));
             setAssignedClientIds(atribuidos);
             setSelectedClientIds([...atribuidos]); // Clone para evitar mutação direta
-            console.log("✅ Clientes Atribuídos Carregados (Padronizados): ", atribuidos);
+            console.log("Clientes Atribuidos Carregados (Padronizados): ", atribuidos);
         } catch (error) {
             console.error("Erro ao buscar clientes já atribuídos:", error);
         }
@@ -151,7 +151,7 @@ export const ProcessAssignment = () => {
             const totalOperations = toAdd.length + toRemove.length;
             let completedOperations = 0;
 
-            console.log("🚀 Iniciando atualização em lote (Chunks):", {
+            console.log("Iniciando atualizacao em lote (Chunks):", {
                 templateId: selectedTemplate?.id,
                 adicionar: toAdd.length,
                 remover: toRemove.length
@@ -553,7 +553,7 @@ export const ProcessAssignment = () => {
                                 </td>
                             </tr>
                         ) : (
-                            console.log("🔍 Renderizando Clientes:", filteredClients),
+                            console.log("Renderizando Clientes:", filteredClients),
                             filteredClients.map(client => (
                                 <tr
                                     key={client.id || client.id_interno}

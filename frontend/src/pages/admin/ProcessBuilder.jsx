@@ -295,7 +295,7 @@ export const ProcessBuilder = () => {
                                         <div>
                                             <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{step.nome}</div>
                                             <div style={{ fontSize: '0.9rem', color: '#555', marginTop: '4px' }}>
-                                                ⏳ SLA para entrega (em dias):
+                                                SLA para entrega (em dias):
                                                 <input
                                                     type="number"
                                                     value={step.dias_prazo}
@@ -350,7 +350,7 @@ export const ProcessBuilder = () => {
 
                     <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
                         <Button onClick={handleSaveProcess} size="normal" style={{ padding: '12px 32px', fontSize: '1.1rem' }} disabled={isSaving}>
-                            {isSaving ? 'Salvando...' : '✓ Salvar Processo (Templates de Rotina)'}
+                            {isSaving ? 'Salvando...' : 'Salvar Processo (Templates de Rotina)'}
                         </Button>
                     </div>
                 </div>

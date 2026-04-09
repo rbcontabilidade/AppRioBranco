@@ -61,16 +61,16 @@ def create_log(log: LogCreate, user_info=CurrentUser):
 @router.get("/cargos_permissoes")
 def get_cargos(user=CurrentUser):
     try:
-        print("🔍 [Backend] Iniciando busca de cargos...")
+        print("[Backend] Iniciando busca de cargos...")
         res = MiscCRUD.get_cargos()
         if hasattr(res, 'error') and res.error:
-            print(f"❌ [Backend] Erro do Supabase ao buscar cargos: {res.error}")
+            print(f"[Backend] Erro do Supabase ao buscar cargos: {res.error}")
             return []
         data = res.data or []
-        print(f"✅ [Backend] Busca finalizada. Encontrados {len(data)} cargos.")
+        print(f"[Backend] Busca finalizada. Encontrados {len(data)} cargos.")
         return data
     except Exception as e:
-        print(f"❌ [Backend] Exceção crítica ao buscar cargos: {e}")
+        print(f"[Backend] Excecao critica ao buscar cargos: {e}")
         return []
 
 @router.post("/cargos_permissoes")
@@ -120,16 +120,16 @@ def delete_cargo(cargo_id: int, user=CurrentUser):
 @router.get("/cargos_permissoes/{cargo_id}/niveis")
 def get_cargo_niveis(cargo_id: int, user=CurrentUser):
     try:
-        print(f"🔍 [Backend] Buscando níveis para o cargo ID: {cargo_id}")
+        print(f"[Backend] Buscando niveis para o cargo ID: {cargo_id}")
         res = MiscCRUD.get_cargo_niveis(cargo_id)
         if hasattr(res, 'error') and res.error:
-            print(f"❌ [Backend] Erro do Supabase ao buscar níveis: {res.error}")
+            print(f"[Backend] Erro do Supabase ao buscar niveis: {res.error}")
             return []
         data = res.data or []
-        print(f"✅ [Backend] Busca de níveis finalizada. Encontrados {len(data)} níveis.")
+        print(f"[Backend] Busca de niveis finalizada. Encontrados {len(data)} niveis.")
         return data
     except Exception as e:
-        print(f"❌ [Backend] Exceção ao buscar níveis: {e}")
+        print(f"[Backend] Excecao ao buscar niveis: {e}")
         return []
 
 @router.post("/cargos_permissoes/{cargo_id}/niveis")

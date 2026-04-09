@@ -30,11 +30,11 @@ const apiInstance = axios.create({
  */
 apiInstance.interceptors.response.use(
     (response) => {
-        console.log(`✅ [API Response] SUCESSO - URL: ${response.config.url} - Status: ${response.status}`);
+        console.log(`[API Response] SUCESSO - URL: ${response.config.url} - Status: ${response.status}`);
         return response;
     },
     (error) => {
-        console.error(`🚨 [API Error] FALHA - URL: ${error.config?.url} - Status: ${error.response?.status}`);
+        console.error(`[API Error] FALHA - URL: ${error.config?.url} - Status: ${error.response?.status}`);
         // Lógica Global de Error: redirecionar pro Login se o token expirar (401)
         if (error.response && error.response.status === 401) {
             console.warn('Sessão expirada ou não autorizada. Redirecionando para login...');

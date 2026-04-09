@@ -79,13 +79,13 @@ const RolesSettings = () => {
     const fetchRoles = async () => {
         try {
             setLoading(true);
-            console.log('🚀 [RolesSettings] Iniciando fetchRoles...');
+            console.log('[RolesSettings] Iniciando fetchRoles...');
             const response = await getCargos();
-            console.log('📦 [RolesSettings] Resposta bruta da API:', response);
+            console.log('[RolesSettings] Resposta bruta da API:', response);
             
             // Garantir que temos um array
             const rawData = Array.isArray(response) ? response : (response?.data && Array.isArray(response.data) ? response.data : []);
-            console.log('🔍 [RolesSettings] Dados extraídos para processamento:', rawData);
+            console.log('[RolesSettings] Dados extraidos para processamento:', rawData);
 
             if (!Array.isArray(rawData)) {
                 throw new Error('A API não retornou um formato de lista válido.');
@@ -99,7 +99,7 @@ const RolesSettings = () => {
                     try {
                         normalizedTelas = JSON.parse(normalizedTelas);
                     } catch (e) {
-                        console.warn(`⚠️ [RolesSettings] Erro ao parsear telas do cargo ${role.id}:`, e);
+                        console.warn(`[RolesSettings] Erro ao parsear telas do cargo ${role.id}:`, e);
                         normalizedTelas = [];
                     }
                 }
@@ -123,11 +123,11 @@ const RolesSettings = () => {
                 };
             });
 
-            console.log('✅ [RolesSettings] Dados normalizados com sucesso:', normalizedData);
+            console.log('[RolesSettings] Dados normalizados com sucesso:', normalizedData);
             setRoles(normalizedData);
             setError(null);
         } catch (err) {
-            console.error('❌ [RolesSettings] Erro crítico ao carregar cargos:', err);
+            console.error('[RolesSettings] Erro critico ao carregar cargos:', err);
             const errorMsg = err.response?.data?.detail || err.message || 'Erro desconhecido';
             setError(`Erro ao carregar cargos: ${errorMsg}`);
             showToast(`Erro na integração de dados: ${errorMsg}`, 'error');

@@ -40,23 +40,23 @@ def _calcular_score(taxa_pontualidade: float, total_concluidas: int, total_parti
     if score >= 90:
         classificacao = "Excepcional"
         cor = "#10b981"   # Verde
-        icone = "🏆"
+        icone = "trofeu"
     elif score >= 75:
         classificacao = "Excelente"
         cor = "#6366f1"   # Roxo
-        icone = "⭐"
+        icone = "estrela"
     elif score >= 60:
         classificacao = "Bom"
         cor = "#3b82f6"   # Azul
-        icone = "👍"
+        icone = "positivo"
     elif score >= 40:
         classificacao = "Regular"
         cor = "#f59e0b"   # Amarelo
-        icone = "⚠️"
+        icone = "alerta"
     else:
         classificacao = "Insuficiente"
         cor = "#ef4444"   # Vermelho
-        icone = "📉"
+        icone = "baixo"
 
     return {
         "valor": score,
