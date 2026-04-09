@@ -1,5 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import Layout from './components/layout/Layout';
 import PrivateRoute from './components/layout/PrivateRoute';
 // Login permanece com import estático — é a primeira tela, não pode ser lazy
@@ -58,6 +59,7 @@ const PageLoader = () => (
 const App = () => {
     return (
         <BrowserRouter>
+            <SpeedInsights />
             {/* Suspense captura as promises dos lazy imports e exibe PageLoader */}
             <Suspense fallback={<PageLoader />}>
                 <Routes>
