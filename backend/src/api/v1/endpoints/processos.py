@@ -19,6 +19,7 @@ class RotinaSchema(BaseModel):
     descricao: Optional[str] = None
     ordem: int
     dias_prazo: int
+    setor_id: Optional[int] = None
     dependente_de_id: Optional[int] = None
     responsible_users: List[int] = []
     checklist: List[ChecklistSchema] = []
@@ -216,6 +217,7 @@ async def obter_processo(id: int):
                 "descricao": t['descricao'],
                 "ordem": t['ordem'],
                 "dias_prazo": t['dias_prazo'],
+                "setor_id": t.get('setor_id'),
                 "dependente_de_id": t['dependente_de_id'],
                 "responsible_users": [r['funcionario_id'] for r in t['rh_tarefas_responsaveis']],
                 "checklist": [
@@ -246,6 +248,7 @@ async def _save_steps(processo_id: int, steps: List[RotinaSchema]):
             "descricao": s.descricao or "",
             "ordem": s.ordem,
             "dias_prazo": s.dias_prazo or 0,
+            "setor_id": s.setor_id,
             "is_active": True,
             # Limpa dependência para ser resolvida corretamente no segundo passo
             "dependente_de_id": None
@@ -324,9 +327,15 @@ async def _save_steps(processo_id: int, steps: List[RotinaSchema]):
                         for rid in ids_para_remover:
                             try:
                                 # Tenta deletar fisicamente. Funciona se não tiver amarrado a histórico.
-                                supabase_admin.table("rh_tarefas_checklists").delete().eq("id", rid).execute()
-                            except Exception:
-                                # Fallback: Se falhar por FK, faz soft-delete p/ preservar histórico de execuções
+                                res_del = supabase_admin.table("rh_tarefas_checklists").delete().eq("id", rid).execute()
+                                
+                                # Verifica se o supabase retornou erro (mesmo sem levantar exception)
+                                if hasattr(res_del, 'error') and res_del.error:
+                                    raise Exception(f"Erro Supabase: {res_del.error}")
+                                    
+                            except Exception as e:
+                                # Fallback: Se falhar (ex: por FK), faz soft-delete p/ preservar histórico de execuções
+                                logger.warning(f"Falha ao deletar checklist {rid}, aplicando soft-delete: {e}")
                                 supabase_admin.table("rh_tarefas_checklists").update({"is_active": False}).eq("id", rid).execute()
             else:
                 # É uma tarefa nova (ID temporário vindo do frontend ou None)
@@ -341,7 +350,7 @@ async def _save_steps(processo_id: int, steps: List[RotinaSchema]):
                         
                     # Novos checklists
                     if s.checklist:
-                        check_payload = [{"tarefa_id": t_id, "item_texto": c.text} for c in s.checklist]
+                        check_payload = [{"tarefa_id": t_id, "item_texto": c.text, "is_active": True} for c in s.checklist]
                         supabase_admin.table("rh_tarefas_checklists").insert(check_payload).execute()
             
             if t_id:
