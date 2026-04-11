@@ -87,7 +87,7 @@ export const ProcessTemplateModal = ({ isOpen, onClose, onSave, initialData }) =
                     id: Date.now(),
                     nome: 'Nova Etapa',
                     descricao: '',
-                    role: 'Fiscal',
+                    setor_id: null,
                     dias_prazo: 5,
                     dependente_de_id: null,
                     responsible_users: [],
@@ -107,7 +107,7 @@ export const ProcessTemplateModal = ({ isOpen, onClose, onSave, initialData }) =
             id: Date.now(),
             nome: `Etapa ${steps.length + 1}`,
             descricao: '',
-            role: 'Fiscal',
+            setor_id: null,
             dias_prazo: 5,
             dependente_de_id: null,
             responsible_users: [],
@@ -149,7 +149,11 @@ export const ProcessTemplateModal = ({ isOpen, onClose, onSave, initialData }) =
                 ).pop();
 
                 if (mostFrequentRole) {
-                    newSteps[stepIndex].role = mostFrequentRole;
+                    // Tenta encontrar o ID do setor baseado no nome (cargo) vindo do usuário
+                    const dept = availableDepartments.find(d => d.nome === mostFrequentRole);
+                    if (dept) {
+                        newSteps[stepIndex].setor_id = dept.id;
+                    }
                 }
             }
         }
@@ -199,6 +203,7 @@ export const ProcessTemplateModal = ({ isOpen, onClose, onSave, initialData }) =
                         descricao: s.descricao || '',
                         ordem: idx + 1,
                         dias_prazo: typeof s.dias_prazo === 'number' ? s.dias_prazo : parseInt(s.dias_prazo) || 0,
+                        setor_id: s.setor_id,
                         dependente_de_id: s.dependente_de_id && s.dependente_de_id < 1000000000 ? s.dependente_de_id : null,
                         responsible_users: s.responsible_users || [],
                         checklist: (s.checklist || []).map(c => ({
@@ -332,8 +337,9 @@ export const ProcessTemplateModal = ({ isOpen, onClose, onSave, initialData }) =
                                     <div style={{ fontSize: '0.9rem', fontWeight: activeStepIndex === index ? 'bold' : 'normal', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                         {step.nome}
                                     </div>
+                                    </div>
                                     <div style={{ fontSize: '0.7rem', color: activeStepIndex === index ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)' }}>
-                                        Setor: {step.role}
+                                        Setor: {availableDepartments.find(d => d.id === step.setor_id)?.nome || 'Sem setor'}
                                     </div>
                                 </div>
                                 {steps.length > 1 && (
@@ -394,11 +400,11 @@ export const ProcessTemplateModal = ({ isOpen, onClose, onSave, initialData }) =
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                                     <GlassSelect
                                         label="Setor Responsável"
-                                        value={activeStep.role}
-                                        onChange={(e) => updateStep(activeStepIndex, 'role', e.target.value)}
+                                        value={activeStep.setor_id || ''}
+                                        onChange={(e) => updateStep(activeStepIndex, 'setor_id', e.target.value ? parseInt(e.target.value) : null)}
                                         options={[
                                             { value: '', label: 'Sem setor definido' },
-                                            ...availableDepartments.map(d => ({ value: d.nome || d, label: d.nome || d }))
+                                            ...availableDepartments.map(d => ({ value: d.id, label: d.nome }))
                                         ]}
                                     />
                                     {frequency === 'Anual' ? (
