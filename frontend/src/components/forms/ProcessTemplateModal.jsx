@@ -337,7 +337,6 @@ export const ProcessTemplateModal = ({ isOpen, onClose, onSave, initialData }) =
                                     <div style={{ fontSize: '0.9rem', fontWeight: activeStepIndex === index ? 'bold' : 'normal', color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                         {step.nome}
                                     </div>
-                                    </div>
                                     <div style={{ fontSize: '0.7rem', color: activeStepIndex === index ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)' }}>
                                         Setor: {availableDepartments.find(d => d.id === step.setor_id)?.nome || 'Sem setor'}
                                     </div>
