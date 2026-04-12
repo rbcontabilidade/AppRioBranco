@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import api from '../services/api';
+import { auditService } from '../services/auditService';
 
 const AuthContext = createContext({});
 
@@ -30,6 +31,9 @@ export function AuthProvider({ children }) {
                     setUser({ id: userData.id, email: userData.nome }); // Mantendo map para compatibilidade retroativa
                     setProfile(userData);
                     setPermissions(Array.isArray(userData.telas_permitidas) ? userData.telas_permitidas : []);
+                    
+                    // Sincroniza o usuário com o serviço de auditoria
+                    auditService.setCurrentUser(userData);
                 }
             } catch (err) {
                 console.warn("[Auth] Sessão ausente ou erro na rede:", err?.message || err);
@@ -78,6 +82,18 @@ export function AuthProvider({ children }) {
                 setProfile(userData);
                 setPermissions(Array.isArray(userData.telas_permitidas) ? userData.telas_permitidas : []);
                 
+                // Sincroniza o usuário com o serviço de auditoria
+                auditService.setCurrentUser(userData);
+                
+                // Registro de Auditoria: Login com Sucesso
+                await auditService.log({
+                    action_type: 'login',
+                    module: 'auth',
+                    description: `Usuário '${userData.nome}' acessou a plataforma.`,
+                    status: 'success',
+                    severity: 'low'
+                });
+
                 return { data: userData, error: null };
             }
 
@@ -86,6 +102,16 @@ export function AuthProvider({ children }) {
         } catch (error) {
             console.error("[Auth] Login error:", error);
             const errorMsg = error.response?.data?.detail || "Incapaz de comunicar ao servidor de Autenticação";
+            
+            // Registro de Auditoria: Falha de Login
+            await auditService.log({
+                action_type: 'login',
+                module: 'auth',
+                description: `Falha na tentativa de login para o usuário '${(credentials.email || credentials.username || '')}'. Erro: ${errorMsg}`,
+                status: 'failure',
+                severity: 'medium'
+            });
+
             return { data: null, error: { message: errorMsg } };
         }
     };
@@ -96,6 +122,18 @@ export function AuthProvider({ children }) {
         } catch (err) {
             console.error("Falha ao derrubar sessão no backend: ", err);
         } finally {
+            // Registro de Auditoria: Logout
+            if (profile) {
+                await auditService.log({
+                    action_type: 'logout',
+                    module: 'auth',
+                    user_id: user?.id,
+                    description: `Usuário '${profile.nome}' encerrou a sessão.`,
+                    status: 'success',
+                    severity: 'low'
+                });
+            }
+
             setUser(null);
             setProfile(null);
             setPermissions([]);
@@ -114,6 +152,7 @@ export function AuthProvider({ children }) {
                 setUser({ id: userData.id, email: userData.nome });
                 setProfile(userData);
                 setPermissions(Array.isArray(userData.telas_permitidas) ? userData.telas_permitidas : []);
+                auditService.setCurrentUser(userData);
             }
         } catch (err) {
             console.error("[Auth] Erto ao sincronizar perfil:", err);

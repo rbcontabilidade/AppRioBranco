@@ -5,7 +5,8 @@ import {
     Workflow,
     Calendar,
     Activity,
-    Settings
+    Settings,
+    ShieldAlert
 } from 'lucide-react';
 
 export const SYSTEM_SCREENS = [
@@ -57,5 +58,12 @@ export const SYSTEM_SCREENS = [
         path: '/settings', 
         icon: Settings,
         adminOnly: false 
+    },
+    { 
+        id: 'audit', 
+        name: 'Auditoria (Logs)', 
+        path: '/admin/audit', 
+        icon: ShieldAlert,
+        adminOnly: true 
     }
 ];

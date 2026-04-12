@@ -3,6 +3,7 @@ import { GlassInput } from '../ui/GlassInput/GlassInput';
 import { GlassSelect } from '../ui/GlassSelect/GlassSelect';
 import { Button } from '../ui/Button/Button';
 import api from '../../services/api';
+import { auditService } from '../../services/auditService';
 import { Info, MapPin, Key, Shield, HardDrive, Mail, Phone, ExternalLink, Search, LayoutGrid, List as ListIcon, CheckCircle2 } from 'lucide-react';
 
 const GoogleDriveIcon = ({ size = 24, style = {} }) => (
@@ -157,32 +158,65 @@ export const ClientForm = ({ initialData, onSuccess, onCancel }) => {
         }
 
         try {
-            if (initialData && (initialData.id || initialData.id_interno)) {
+            let savedClient;
+
+            if (isEditMode) {
                 const clientId = initialData.id || initialData.id_interno;
                 console.log(`🔄 [ClientForm] Atualizando cliente ${clientId}`);
                 const response = await api.put(`/clientes/${clientId}`, payload);
-                if (onSuccess) onSuccess(response.data, 'edit');
+                savedClient = response.data;
             } else {
+                console.log(`🆕 [ClientForm] Criando novo cliente`);
                 const response = await api.post('/clientes', payload);
-                const newClient = response.data;
-                const newClientId = newClient.id || newClient.id_interno;
+                savedClient = response.data;
 
-                // Se houver processos selecionados no modo de criação, vinculamos agora
-                if (newClientId && clientProcesses.length > 0) {
+                // Se houver processos marcados na criação, nós os vinculamos agora
+                if (clientProcesses.length > 0 && (savedClient?.id || savedClient?.id_interno)) {
+                    const newClientId = savedClient.id || savedClient.id_interno;
                     try {
-                        await Promise.all(clientProcesses.map(procId =>
-                            api.post(`/processos/clientes/${newClientId}/${procId}`)
-                        ));
-                    } catch (linkErr) {
-                        console.error("Erro ao vincular processos ao novo cliente:", linkErr);
+                        for (const procId of clientProcesses) {
+                            await api.post(`/processos/clientes/${newClientId}/${procId}`);
+                        }
+                    } catch (e) {
+                         console.error("Aviso: Falha ao vincular processos durante criação:", e);
                     }
                 }
-
-                if (onSuccess) onSuccess(newClient, 'create');
             }
+
+            // Registro de Auditoria: Sucesso
+            await auditService.log({
+                action_type: isEditMode ? 'update' : 'create',
+                module: 'clientes',
+                entity_type: 'cliente',
+                entity_label: payload.razao_social,
+                description: isEditMode 
+                    ? `Alterou o cadastro do cliente '${payload.razao_social}'.`
+                    : `Cadastrou o novo cliente '${payload.razao_social}' com ${clientProcesses.length} processos vinculados.`,
+                old_values: initialData || {},
+                new_values: { ...payload, vinculacao_processos: clientProcesses },
+                status: 'success',
+                severity: isEditMode ? 'medium' : 'low'
+            });
+
+            // Fecha o modal e notifica sucesso
+            if (onSuccess) onSuccess(savedClient, isEditMode ? 'edit' : 'create');
+
+
         } catch (err) {
             console.error("Erro ao salvar cliente:", err);
-            setError(err.response?.data?.detail || "Ocorreu um erro ao salvar o cliente. Tente novamente.");
+            const errorMsg = err.response?.data?.detail || err.message || "Ocorreu um erro ao salvar o cliente. Tente novamente.";
+            setError(errorMsg);
+
+            // Registro de Auditoria: Falha
+            await auditService.log({
+                action_type: isEditMode ? 'update' : 'create',
+                module: 'clientes',
+                entity_type: 'cliente',
+                entity_label: payload.razao_social,
+                description: `Falha ao salvar cliente '${payload.razao_social}': ${errorMsg}`,
+                status: 'failure',
+                severity: 'medium'
+            });
         } finally {
             setLoading(false);
         }

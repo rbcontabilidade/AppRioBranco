@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button/Button';
 import { api } from '../../services/api';
 import { useDialog } from '../../contexts/DialogContext';
 import { useNavigate } from 'react-router-dom';
-import { AuditSettings } from './components/AuditSettings';
+
 import RolesSettings from './components/RolesSettings';
 
 /**
@@ -147,7 +147,18 @@ const SistemaSettings = () => {
 
                 {activeSection === 'roles' && <RolesSettings />}
 
-                {activeSection === 'audit' && <AuditSettings />}
+                {activeSection === 'audit' && (
+                    <GlassCard style={{ padding: '40px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                        <FileText size={48} color="var(--primary-light)" style={{ opacity: 0.6 }} />
+                        <h2 style={{ fontSize: '1.2rem', fontWeight: '700' }}>Central de Auditoria</h2>
+                        <p style={{ color: 'var(--text-muted)', maxWidth: '400px', fontSize: '0.9rem' }}>
+                            Acesse a página especializada em auditoria e rastreio de ações do sistema com filtros avançados.
+                        </p>
+                        <Button variant="primary" onClick={() => navigate('/admin/audit')}>
+                            Abrir Registros de Auditoria
+                        </Button>
+                    </GlassCard>
+                )}
 
                 {activeSection === 'processes' && (
                     <GlassCard style={{ padding: '40px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>

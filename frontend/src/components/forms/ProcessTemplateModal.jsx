@@ -17,6 +17,7 @@ import {
     Users
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { auditService } from '../../services/auditService';
 import { useDialog } from '../../contexts/DialogContext';
 import UserMultiSelect from '../ui/UserMultiSelect/UserMultiSelect';
 
@@ -220,6 +221,21 @@ export const ProcessTemplateModal = ({ isOpen, onClose, onSave, initialData }) =
                 await api.post('/processos', payload);
             }
 
+            // Registro de Auditoria: Sucesso
+            await auditService.log({
+                action_type: initialData?.id ? 'update' : 'create',
+                module: 'processos',
+                entity_type: 'template_processo',
+                entity_label: templateName,
+                description: initialData?.id 
+                    ? `Alterou o template do processo '${templateName}'.`
+                    : `Criou um novo template de processo: '${templateName}'.`,
+                old_values: initialData || {},
+                new_values: payload,
+                status: 'success',
+                severity: initialData?.id ? 'medium' : 'low'
+            });
+
             if (onSave) onSave(payload);
             onClose();
             showAlert({ title: 'Sucesso', message: 'Template de processo salvo com sucesso!', variant: 'success' });
@@ -234,6 +250,17 @@ export const ProcessTemplateModal = ({ isOpen, onClose, onSave, initialData }) =
                 title: 'Erro ao Salvar', 
                 message: errorMsg, 
                 variant: 'danger' 
+            });
+
+            // Registro de Auditoria: Falha
+            await auditService.log({
+                action_type: initialData?.id ? 'update' : 'create',
+                module: 'processos',
+                entity_type: 'template_processo',
+                entity_label: templateName,
+                description: `Falha ao salvar template '${templateName}': ${errorMsg}`,
+                status: 'failure',
+                severity: 'medium'
             });
         } finally {
             setIsSaving(false);

@@ -7,6 +7,7 @@ import ClientForm from '../../components/forms/ClientForm';
 import { UserPlus, Edit2, Trash2, AlertTriangle, CheckCircle, Search, ExternalLink } from 'lucide-react';
 import { GlassCard } from '../../components/ui/GlassCard/GlassCard';
 import api from '../../services/api';
+import { auditService } from '../../services/auditService';
 import { useDialog } from '../../contexts/DialogContext';
 
 const Clients = () => {
@@ -231,14 +232,38 @@ const Clients = () => {
 
         setIsMutating(true);
         try {
+            const clientsToDelete = clients.filter(c => selectedIds.includes(c.id || c.id_interno));
             await Promise.all(selectedIds.map(id => api.delete(`/clientes/${id}`)));
+            
+            // Registro de Auditoria: Sucesso em Massa
+            await auditService.log({
+                action_type: 'delete',
+                module: 'clientes',
+                entity_type: 'cliente',
+                description: `Excluiu ${selectedIds.length} clientes em massa.`,
+                old_values: { deleted_ids: selectedIds, clients: clientsToDelete.map(c => ({ id: c.id, nome: c.razao_social || c.nome })) },
+                status: 'success',
+                severity: 'high'
+            });
+
             queryClient.setQueryData(['clients'], prev => 
                 (prev || []).filter(c => !selectedIds.includes(c.id || c.id_interno))
             );
             setSelectedIds([]);
             showAlert({ title: 'Sucesso', message: 'Clientes removidos com sucesso.', variant: 'success' });
         } catch (err) {
+            console.error("Erro na exclusão em massa:", err);
+            const errorMsg = err.response?.data?.detail || err.message || "Erro desconhecido";
             setError("Erro ao processar exclusão em massa.");
+
+            // Registro de Auditoria: Falha
+            await auditService.log({
+                action_type: 'delete',
+                module: 'clientes',
+                description: `Falha na exclusão em massa de ${selectedIds.length} clientes: ${errorMsg}`,
+                status: 'failure',
+                severity: 'high'
+            });
         } finally {
             setIsMutating(false);
         }
@@ -248,6 +273,18 @@ const Clients = () => {
         setIsMutating(true);
         try {
             await Promise.all(selectedIds.map(id => api.put(`/clientes/${id}`, { ativo: active })));
+            
+            // Registro de Auditoria: Status em Massa
+            await auditService.log({
+                action_type: 'update',
+                module: 'clientes',
+                entity_type: 'cliente',
+                description: `Alterou o status de ${selectedIds.length} clientes para ${active ? 'Ativo' : 'Inativo'} em massa.`,
+                new_values: { active, affected_ids: selectedIds },
+                status: 'success',
+                severity: 'medium'
+            });
+
             queryClient.setQueryData(['clients'], prev => 
                 (prev || []).map(c => 
                     selectedIds.includes(c.id || c.id_interno) ? { ...c, ativo: active } : c
@@ -256,6 +293,7 @@ const Clients = () => {
             setSelectedIds([]);
             showAlert({ title: 'Sucesso', message: 'Status atualizados com sucesso.', variant: 'success' });
         } catch (err) {
+            console.error("Erro no status em massa:", err);
             setError("Erro ao atualizar status em massa.");
         } finally {
             setIsMutating(false);
@@ -313,7 +351,21 @@ const Clients = () => {
 
         try {
             const clientId = client.id || client.id_interno;
+            const clientName = client.razao_social || client.nome;
             await api.delete(`/clientes/${clientId}`);
+
+            // Registro de Auditoria: Sucesso
+            await auditService.log({
+                action_type: 'delete',
+                module: 'clientes',
+                entity_type: 'cliente',
+                entity_id: clientId,
+                entity_label: clientName,
+                description: `Removeu permanentemente o cliente '${clientName}'.`,
+                old_values: client,
+                status: 'success',
+                severity: 'high'
+            });
 
             // UI Otimista para cache local
             queryClient.setQueryData(['clients'], prev => 
@@ -324,7 +376,19 @@ const Clients = () => {
             setTimeout(() => setSuccessMsg(''), 3500);
         } catch (err) {
             console.error("Erro ao deletar cliente:", err);
-            setError("Falha ao tentar remover este cliente. O servidor pode ter negado ou ele não existe mais.");
+            const errorMsg = err.response?.data?.detail || err.message || "Erro desconhecido";
+            setError("Falha ao tentar remover este cliente.");
+
+            // Registro de Auditoria: Falha
+            await auditService.log({
+                action_type: 'delete',
+                module: 'clientes',
+                entity_type: 'cliente',
+                entity_label: client.razao_social || client.nome,
+                description: `Falha ao excluir cliente '${client.razao_social || client.nome}': ${errorMsg}`,
+                status: 'failure',
+                severity: 'high'
+            });
             setTimeout(() => setError(null), 6000);
         }
     };
@@ -333,8 +397,23 @@ const Clients = () => {
         try {
             const newValue = !client.ativo;
             const clientId = client.id || client.id_interno;
+            const clientName = client.razao_social || client.nome;
             await api.put(`/clientes/${clientId}`, { ativo: newValue });
             
+            // Registro de Auditoria: Sucesso
+            await auditService.log({
+                action_type: 'update',
+                module: 'clientes',
+                entity_type: 'cliente',
+                entity_id: clientId,
+                entity_label: clientName,
+                description: `Alterou status do cliente '${clientName}' para ${newValue ? 'Ativo' : 'Inativo'}.`,
+                old_values: { ativo: client.ativo },
+                new_values: { ativo: newValue },
+                status: 'success',
+                severity: 'low'
+            });
+
             // UI Otimista / Invalidação Direta em Cache
             queryClient.setQueryData(['clients'], prev => 
                 (prev || []).map(c => (c.id || c.id_interno) === clientId ? { ...c, ativo: newValue } : c)
@@ -345,7 +424,6 @@ const Clients = () => {
         } catch (err) {
             console.error("Erro ao atualizar status:", err);
             setError("Falha ao atualizar o status do cliente.");
-            setTimeout(() => setError(null), 3000);
         }
     };
 

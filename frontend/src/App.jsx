@@ -21,6 +21,7 @@ const ProcessAssignment = lazy(() => import('./pages/admin/ProcessAssignment'));
 const Competences = lazy(() => import('./pages/admin/Competences'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 const ExecutiveDashboard = lazy(() => import('./pages/admin/ExecutiveDashboard'));
+const AuditLogs = lazy(() => import('./pages/admin/AuditLogs'));
 
 // Performance — baixado apenas quando o usuário acessa a área
 const MyPerformance = lazy(() => import('./pages/performance/MyPerformance'));
@@ -93,6 +94,7 @@ const App = () => {
                         <Route path="admin/competences" element={<Competences />} />
                         <Route path="admin/dashboard" element={<AdminDashboard />} />
                         <Route path="admin/executive" element={<ExecutiveDashboard />} />
+                        <Route path="admin/audit" element={<AuditLogs />} />
                     </Route>
 
                     {/* Catch-all: Redireciona qualquer rota inexistente para a Dashboard */}

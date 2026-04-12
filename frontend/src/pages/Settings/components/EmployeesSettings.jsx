@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { GlassCard } from '../../../components/ui/GlassCard/GlassCard';
 import { Button } from '../../../components/ui/Button/Button';
 import DataTable from '../../../components/ui/DataTable/DataTable';
 import api, { getCargos } from '../../../services/api';
+import { auditService } from '../../../services/auditService';
 import { Users, UserPlus, Edit2, Trash2 } from 'lucide-react';
 import { SettingsModal } from './SettingsModal';
 
@@ -104,26 +107,86 @@ export const EmployeesSettings = () => {
                 await api.post('/funcionarios', payload);
             }
 
+            // Registro de Auditoria: Sucesso
+            await auditService.log({
+                action_type: editingId ? 'update' : 'create',
+                module: 'sistema',
+                entity_type: 'funcionario',
+                entity_label: payload.nome,
+                description: editingId 
+                    ? `Alterou os dados do funcionário '${payload.nome}'.`
+                    : `Cadastrou um novo funcionário: '${payload.nome}'.`,
+                old_values: editingId ? (employees.find(e => e.id === editingId) || {}) : {},
+                new_values: payload,
+                status: 'success',
+                severity: 'medium'
+            });
+
             setModalOpen(false);
             queryClient.invalidateQueries({ queryKey: ['funcionarios'] });
         } catch (err) {
             console.error(err);
-            alert("Não foi possível salvar os dados do funcionário.");
+            const errorMsg = err.response?.data?.detail || err.message || "Erro desconhecido";
+            
+            // Registro de Auditoria: Falha
+            await auditService.log({
+                action_type: editingId ? 'update' : 'create',
+                module: 'sistema',
+                entity_type: 'funcionario',
+                entity_label: formData.nome,
+                description: `Falha ao salvar funcionário '${formData.nome}': ${errorMsg}`,
+                status: 'failure',
+                severity: 'medium'
+            });
+
+            alert("Não foi possível salvar os dados do funcionário: " + errorMsg);
         }
     };
 
     const handleDelete = async (id) => {
         if (!window.confirm("Atenção! Deletar o funcionário é irreversível. Prosseguir?")) return;
+        
+        const empToDelete = employees.find(e => e.id === id);
+        const empName = empToDelete?.nome || id;
+
         try {
             await api.delete(`/funcionarios/${id}`);
+            
+            // Registro de Auditoria: Sucesso
+            await auditService.log({
+                action_type: 'delete',
+                module: 'sistema',
+                entity_type: 'funcionario',
+                entity_id: id,
+                entity_label: empName,
+                description: `Removeu permanentemente a conta do funcionário '${empName}'.`,
+                old_values: empToDelete || {},
+                status: 'success',
+                severity: 'high'
+            });
+
             queryClient.invalidateQueries({ queryKey: ['funcionarios'] });
         } catch (err) {
             console.error(err);
+            const errorMsg = err.response?.data?.detail || err.message || "Erro desconhecido";
+            
+            // Registro de Auditoria: Falha
+            await auditService.log({
+                action_type: 'delete',
+                module: 'sistema',
+                entity_type: 'funcionario',
+                entity_id: id,
+                entity_label: empName,
+                description: `Falha ao excluir funcionário '${empName}': ${errorMsg}`,
+                status: 'failure',
+                severity: 'high'
+            });
+
             alert("Erro ao excluir. O funcionário pode ter históricos amarrados.");
         }
     };
 
-    const tableColumns = ['Nome', 'Cargo', 'Setor', 'Status', 'Ações'];
+    const tableColumns = ['Nome', 'Cargo', 'Setor', 'Último Acesso', 'Status', 'Ações'];
 
     const tableData = employees.map(row => {
         const cargoName = getCargoName(row.cargo_id);
@@ -141,6 +204,13 @@ export const EmployeesSettings = () => {
                 </span>
             ) : <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Sem Cargo</span>,
             row.setores?.nome || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Sem Setor</span>,
+            row.last_login ? (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ color: '#fff', fontSize: '0.85rem' }}>
+                        {format(parseISO(row.last_login), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                    </span>
+                </div>
+            ) : <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.8rem' }}>Nunca logou</span>,
             row.ativo ?
                 <span style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem' }}>Ativo</span> :
                 <span style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem' }}>Inativo</span>,

@@ -1,30 +1,33 @@
 -- ===========================================
--- MIGRATION: FIX AUDIT LOGS RLS
+-- MIGRATION: FIX AUDIT LOGS RLS (PUBLIC ACCESS)
 -- ===========================================
+-- Esta migração relaxa as regras de RLS para a tabela de auditoria
+-- para permitir que usuários autenticados via backend customizado
+-- possam gravar e ler logs mesmo sem uma sessão nativa do Supabase Auth.
 
--- Remove políticas antigas caso existam para evitar conflitos
+-- 1. Remover políticas antigas para evitar conflitos
 DROP POLICY IF EXISTS "Admins can view audit logs" ON public.audit_logs;
 DROP POLICY IF EXISTS "Authenticated users can insert audit logs" ON public.audit_logs;
+DROP POLICY IF EXISTS "Public can insert audit logs" ON public.audit_logs;
+DROP POLICY IF EXISTS "Public can view audit logs" ON public.audit_logs;
 
--- Política: Apenas Administradores podem visualizar logs
--- Consideramos administradores aqueles com cargo_id = 1 ou permissao 'admin'
--- O match de usuário é feito tentando cruzar o nome ou o email com o cadastro
-CREATE POLICY "Admins can view audit logs" ON public.audit_logs
-    FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.funcionarios f
-            WHERE (f.nome = auth.jwt() -> 'user_metadata' ->> 'full_name' 
-                   OR f.nome = auth.jwt() ->> 'email')
-            AND (f.cargo_id = 1 OR f.permissao ILIKE 'admin')
-        )
-    );
+-- 2. Garantir que RLS está habilitado (boa prática)
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
--- Política: Qualquer usuário autenticado pode inserir logs (necessário para registrar ações no sistema)
-CREATE POLICY "Authenticated users can insert audit logs" ON public.audit_logs
+-- 3. Política: Permitir que QUALQUER UM (incluindo anon) insira logs
+-- Isso garante que as ações sejam rastreadas independentemente da sessão.
+CREATE POLICY "Public can insert audit logs" ON public.audit_logs
     FOR INSERT
-    WITH CHECK (auth.uid() IS NOT NULL);
+    WITH CHECK (true);
 
--- Política para Delete/Update
--- O Supabase já bloqueia por padrão caso não haja política de DELETE/UPDATE
--- Portanto, a tabela permanece append-only para todos.
+-- 4. Política: Permitir que QUALQUER UM leia os logs
+-- ATENÇÃO: Em produção estrita, isso deve ser limitado a administradores.
+-- Como o sistema usa auth customizado, esta é a forma de garantir visibilidade imediata.
+CREATE POLICY "Public can view audit logs" ON public.audit_logs
+    FOR SELECT
+    USING (true);
+
+-- 5. Logs permanecem append-only (sem UPDATE ou DELETE)
+-- Não criamos políticas para UPDATE/DELETE, garantindo a integridade da trilha.
+
+COMMENT ON TABLE public.audit_logs IS 'Tabela de auditoria com acesso público para INSERT/SELECT devido ao auth customizado.';

@@ -1,0 +1,25 @@
+name: Sync with Hugging Face Space
+
+on:
+  push:
+    branches:
+      - master
+      - main
+
+  # Permite que você rode esse script manualmente pela aba "Actions" do GitHub
+  workflow_dispatch:
+
+jobs:
+  sync-to-hub:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Baixa o histórico do Git necessário para empurrar
+          lfs: true      # Habilita Git LFS para arquivos grandes
+          
+      - name: Push to Hugging Face
+        # SUBSTITUA 'seu-usuario' e 'nome-do-seu-space' pelos valores reais do link do seu Space!
+        # Exemplo: se o link do seu space é https://huggingface.co/spaces/rbcontabilidade/AppRioBranco,
+        # Você colocaria rbcontabilidade:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/rbcontabilidade/AppRioBranco
+        run: git push --force https://seu-usuario:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/seu-usuario/nome-do-seu-space master:main

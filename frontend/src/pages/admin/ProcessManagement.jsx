@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/Button/Button';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Plus, PlayCircle, Edit, LayoutGrid, List, Trash2, Users, Search, Filter, X, ArrowUpDown, Clock, SortAsc, SortDesc, ListFilter } from 'lucide-react';
 import { api } from '../../services/api';
+import { auditService } from '../../services/auditService';
 import DataTable from '../../components/ui/DataTable/DataTable';
 import ProcessTemplateModal from '../../components/forms/ProcessTemplateModal';
 
@@ -141,12 +142,43 @@ export const ProcessManagement = () => {
         if (isConfirmed) {
             try {
                 setLoading(true);
+                
+                // Buscar dados atuais antes de deletar para o log
+                const processData = templates.find(t => t.id === processId) || { id: processId, nome: processName };
+
                 await api.delete(`/processos/${processId}`);
+                
+                // Registro de Auditoria: Sucesso
+                await auditService.log({
+                    action_type: 'delete',
+                    module: 'processos',
+                    entity_type: 'template_processo',
+                    entity_id: processId,
+                    entity_label: processName,
+                    description: `Excluiu permanentemente o template de processo '${processName}'.`,
+                    old_values: processData,
+                    status: 'success',
+                    severity: 'high'
+                });
+
                 await fetchProcessos();
-                // Opcional: Aqui poderíamos introduzir um alert visual de sucesso mais elegante se houvesse, pro hora o fetchProcessos regarrega a lista
             } catch (error) {
                 console.error("Erro ao excluir processo:", error);
-                alert("Ocorreu um erro ao tentar excluir o processo. Tente novamente.");
+                const errorMsg = error.response?.data?.detail || error.message || "Erro desconhecido";
+                
+                // Registro de Auditoria: Falha
+                await auditService.log({
+                    action_type: 'delete',
+                    module: 'processos',
+                    entity_type: 'template_processo',
+                    entity_id: processId,
+                    entity_label: processName,
+                    description: `Falha ao tentar excluir o processo '${processName}': ${errorMsg}`,
+                    status: 'failure',
+                    severity: 'high'
+                });
+
+                alert("Ocorreu um erro ao tentar excluir o processo: " + errorMsg);
             } finally {
                 setLoading(false);
             }

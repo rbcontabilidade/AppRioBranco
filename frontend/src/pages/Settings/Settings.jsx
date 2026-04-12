@@ -3,9 +3,9 @@ import { Layers, Shield, Settings as SettingsIcon, Users, Database, FileText } f
 import { useNavigate } from 'react-router-dom';
 import { GlassCard } from '../../components/ui/GlassCard/GlassCard';
 import { Button } from '../../components/ui/Button/Button';
-import { RolesSettings } from './components/RolesSettings';
-import { TeamSettings } from './components/TeamSettings';
-import { AuditSettings } from './components/AuditSettings';
+import RolesSettings from './components/RolesSettings';
+import { EmployeesSettings } from './components/EmployeesSettings';
+import { SectorsSettings } from './components/SectorsSettings';
 import { api } from '../../services/api';
 import { useDialog } from '../../contexts/DialogContext';
 
@@ -48,8 +48,8 @@ const Settings = () => {
     const tabs = [
         { id: 'team', label: 'Gest\u00e3o de Equipe', icon: Users },
         { id: 'roles', label: 'Cargos e N\u00edveis', icon: Shield },
+        { id: 'sectors', label: 'Setores', icon: Database },
         { id: 'processes', label: 'Fluxo de Trabalho', icon: Layers },
-        { id: 'audit', label: 'Auditoria (Logs)', icon: FileText },
         { id: 'backup', label: 'Geral & Backup', icon: Database },
     ];
 
@@ -82,9 +82,10 @@ const Settings = () => {
 
             {/* Conte\u00fado da Aba */}
             <div style={{ flex: 1, paddingRight: '12px', overflowY: 'auto' }}>
-                {activeTab === 'team' && <TeamSettings />}
+                {activeTab === 'team' && <EmployeesSettings />}
 
-                {activeTab === 'roles' && <RolesSettings />}
+                { activeTab === 'roles' && <RolesSettings /> }
+                { activeTab === 'sectors' && <SectorsSettings /> }
 
                 {activeTab === 'processes' && (
                     <GlassCard style={{ padding: '32px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
@@ -99,9 +100,6 @@ const Settings = () => {
                     </GlassCard>
                 )}
 
-                {activeTab === 'audit' && (
-                    <AuditSettings />
-                )}
 
                 {activeTab === 'backup' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>

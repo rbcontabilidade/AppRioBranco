@@ -1,5 +1,6 @@
 import os
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
+from datetime import datetime
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from typing import Optional
@@ -112,6 +113,12 @@ async def login(response: Response, form_data: LoginRequest):
         
         access_token = create_access_token(data=token_data)
         
+        # 4.5 Registrar o Horário de Login na tabela funcionários
+        try:
+            supabase.table("funcionarios").update({"last_login": datetime.now().isoformat()}).eq("id", user["id"]).execute()
+        except Exception as log_err:
+            print(f"[Auth] Erro ao registrar last_login: {log_err}")
+
         # Define o cookie seguro
         # IMPORTANTE: secure=True é OBRIGATÓRIO em HTTPS (Produção/Vercel) para o cookie ser aceito.
         is_prod = os.getenv("FRONTEND_URL", "").startswith("https")
