@@ -3,12 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import KpiCard from '../../components/ui/KpiCard/KpiCard';
 import { GlassCard } from '../../components/ui/GlassCard/GlassCard';
 import { Button } from '../../components/ui/Button/Button';
-import { FileText, CheckCircle, CheckCircle2, PlayCircle, ChevronRight, Clock, AlertTriangle, Lock, Play, UserCheck, Calendar, ListTodo, FastForward, ChevronDown, ChevronUp, Users, ExternalLink, Search, LayoutGrid, LayoutList, Rows, Columns } from 'lucide-react';
+import { FileText, CheckCircle, CheckCircle2, PlayCircle, ChevronRight, Clock, AlertTriangle, Lock, Play, UserCheck, Calendar, ListTodo, FastForward, ChevronDown, ChevronUp, Users, ExternalLink, Search, LayoutGrid, LayoutList, Rows, Columns, Table2 } from 'lucide-react';
 import Modal from '../../components/ui/Modal/Modal';
 import { api, processService } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import AdvancedDashboardView from './AdvancedDashboardView';
-import KanbanDashboardView from './KanbanDashboardView';
+import MatrixDashboardView from './MatrixDashboardView';
 
 const Dashboard = () => {
     const { profile, isAdmin } = useAuth(); // Alterado de user para profile e usamos a variável centralizada isAdmin
@@ -808,9 +808,8 @@ const Dashboard = () => {
                                     {[
                                         { id: 'normal', icon: <Rows size={16} />, label: 'Lista' },
                                         { id: 'compact', icon: <LayoutList size={16} />, label: 'Compacto' },
-                                        { id: 'grid', icon: <LayoutGrid size={16} />, label: 'Grade' },
-                                        { id: 'advanced', icon: <Columns size={16} />, label: 'Avançado' },
-                                        { id: 'kanban', icon: <LayoutList size={16} style={{transform: 'rotate(90deg)'}} />, label: 'Kanban' }
+                                        { id: 'matrix', icon: <Table2 size={16} />, label: 'Matriz' },
+                                        { id: 'advanced', icon: <Columns size={16} />, label: 'Avançado' }
                                     ].map(mode => (
                                         <button
                                             key={mode.id}
@@ -933,8 +932,8 @@ const Dashboard = () => {
                                         return <AdvancedDashboardView tasks={filteredTasks} onCompleteTask={handleCompleteTask} isAdmin={isAdmin} />;
                                     }
                                     
-                                    if (viewMode === 'kanban') {
-                                        return <KanbanDashboardView tasks={filteredTasks} onCompleteTask={handleCompleteTask} isAdmin={isAdmin} />;
+                                    if (viewMode === 'matrix') {
+                                        return <MatrixDashboardView tasks={filteredTasks} onCompleteTask={handleCompleteTask} isAdmin={isAdmin} />;
                                     }
 
                                     // 1. Agrupar por NOME DO PROCESSO (Nível 1)
