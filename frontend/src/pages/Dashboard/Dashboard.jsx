@@ -3,12 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import KpiCard from '../../components/ui/KpiCard/KpiCard';
 import { GlassCard } from '../../components/ui/GlassCard/GlassCard';
 import { Button } from '../../components/ui/Button/Button';
-import { FileText, CheckCircle, CheckCircle2, PlayCircle, ChevronRight, Clock, AlertTriangle, Lock, Play, UserCheck, Calendar, ListTodo, FastForward, ChevronDown, ChevronUp, Users, ExternalLink, Search, LayoutGrid, LayoutList, Rows, Columns, Table2 } from 'lucide-react';
+import { FileText, CheckCircle, CheckCircle2, PlayCircle, ChevronRight, Clock, AlertTriangle, Lock, Play, UserCheck, Calendar, ListTodo, FastForward, ChevronDown, ChevronUp, Users, ExternalLink, Search, LayoutGrid, LayoutList, Rows, Columns, Table2, Target } from 'lucide-react';
 import Modal from '../../components/ui/Modal/Modal';
 import { api, processService } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import AdvancedDashboardView from './AdvancedDashboardView';
 import MatrixDashboardView from './MatrixDashboardView';
+import FocusDashboardView from './FocusDashboardView';
 
 const Dashboard = () => {
     const { profile, isAdmin } = useAuth(); // Alterado de user para profile e usamos a variável centralizada isAdmin
@@ -806,6 +807,7 @@ const Dashboard = () => {
                                     border: '1px solid rgba(255,255,255,0.05)'
                                 }}>
                                     {[
+                                        { id: 'focus', icon: <Target size={16} />, label: 'Foco' },
                                         { id: 'normal', icon: <Rows size={16} />, label: 'Lista' },
                                         { id: 'compact', icon: <LayoutList size={16} />, label: 'Compacto' },
                                         { id: 'matrix', icon: <Table2 size={16} />, label: 'Matriz' },
@@ -926,6 +928,10 @@ const Dashboard = () => {
                                                 Nenhuma tarefa corresponde à busca ou filtro de status.
                                             </GlassCard>
                                         );
+                                    }
+
+                                    if (viewMode === 'focus') {
+                                        return <FocusDashboardView tasks={filteredTasks} onCompleteTask={handleCompleteTask} isAdmin={isAdmin} />;
                                     }
 
                                     if (viewMode === 'advanced') {
