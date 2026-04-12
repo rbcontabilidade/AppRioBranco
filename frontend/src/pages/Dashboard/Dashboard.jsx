@@ -809,7 +809,6 @@ const Dashboard = () => {
                                     {[
                                         { id: 'focus', icon: <Target size={16} />, label: 'Foco' },
                                         { id: 'normal', icon: <Rows size={16} />, label: 'Lista' },
-                                        { id: 'compact', icon: <LayoutList size={16} />, label: 'Compacto' },
                                         { id: 'matrix', icon: <LayoutGrid size={16} />, label: 'Matriz' },
                                         { id: 'advanced', icon: <Columns size={16} />, label: 'Avançado' }
                                     ].map(mode => (
