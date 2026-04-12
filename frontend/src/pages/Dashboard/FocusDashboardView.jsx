@@ -13,7 +13,8 @@ import {
     Play,
     ChevronDown,
     ChevronUp,
-    FileText
+    FileText,
+    ClipboardList
 } from 'lucide-react';
 
 const isToday = (dateStr) => {
@@ -38,7 +39,14 @@ const groupBy = (array, key) => {
 };
 
 const FocusDashboardView = ({ tasks, onCompleteTask, isAdmin }) => {
-    const [expandedGroups, setExpandedGroups] = useState({});
+    const [expandedGroups, setExpandedGroups] = useState(() => {
+        const saved = localStorage.getItem('focusViewExpandedGroups');
+        return saved ? JSON.parse(saved) : {};
+    });
+
+    React.useEffect(() => {
+        localStorage.setItem('focusViewExpandedGroups', JSON.stringify(expandedGroups));
+    }, [expandedGroups]);
 
     const toggleGroup = (groupId) => {
         setExpandedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
@@ -135,11 +143,11 @@ const FocusDashboardView = ({ tasks, onCompleteTask, isAdmin }) => {
     );
 
     return (
-        <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '24px' }}>
             
             {hierarchy.length === 0 && (
-                <GlassCard style={{ padding: '80px 20px', textAlign: 'center', color: '#64748b' }}>
-                    <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto' }}>
+                <GlassCard style={{ padding: '80px 20px', textAlign: 'center', color: '#64748b', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto', boxShadow: '0 0 20px rgba(16, 185, 129, 0.2)' }}>
                         <CheckCircle2 size={32} color="#10b981" />
                     </div>
                     <h2 style={{ color: 'white', marginBottom: '8px' }}>Nenhuma tarefa pendente</h2>
