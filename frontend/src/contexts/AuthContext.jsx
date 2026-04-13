@@ -71,6 +71,11 @@ export function AuthProvider({ children }) {
                 password: credentials.password
             });
 
+            // Se o backend nos enviou o access_token explícito (como planejado), armazenamos para os interceptors
+            if (response.data && response.data.access_token) {
+                localStorage.setItem('access_token', response.data.access_token);
+            }
+
             // IMPORTANTE: O login inicial às vezes não traz as permissões completas (RBAC).
             // Para evitar o loop de redirecionamento, buscamos os detalhes do perfil
             // IMEDIATAMENTE antes de setar o usuário no estado global.
@@ -122,6 +127,9 @@ export function AuthProvider({ children }) {
         } catch (err) {
             console.error("Falha ao derrubar sessão no backend: ", err);
         } finally {
+            // Removemos o token estático também
+            localStorage.removeItem('access_token');
+            
             // Registro de Auditoria: Logout
             if (profile) {
                 await auditService.log({

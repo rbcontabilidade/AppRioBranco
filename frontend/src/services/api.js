@@ -25,6 +25,23 @@ const apiInstance = axios.create({
 });
 
 /**
+ * Interceptor de Requisição (Request Interceptor)
+ * Injeta o token de autenticação via Header caso o fallback de cookies seja bloqueado por política de CORS/SameSite.
+ */
+apiInstance.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('access_token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
+/**
  * Interceptor de Resposta (Response Interceptor)
  * Aqui tratamos retornos globais (ex: 401 Não Autorizado para forçar um logout)
  */
@@ -37,9 +54,9 @@ apiInstance.interceptors.response.use(
         console.error(`[API Error] FALHA - URL: ${error.config?.url} - Status: ${error.response?.status}`);
         // Lógica Global de Error: redirecionar pro Login se o token expirar (401)
         if (error.response && error.response.status === 401) {
-            console.warn('Sessão expirada ou não autorizada. Redirecionando para login...');
-            // Opcional: localStorage.removeItem('token');
-            // window.location.href = '/login';
+            console.warn('Sessão expirada ou não autorizada. Removendo token...');
+            localStorage.removeItem('access_token');
+            // Opcional: window.location.href = '/login';
         }
         return Promise.reject(error);
     }
