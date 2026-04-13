@@ -32,7 +32,14 @@ apiInstance.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('access_token');
         if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+            console.log(`[API Interceptor] Injetando token Authorization (Tamanho: ${token.length}) para ${config.url}`);
+            if (typeof config.headers.set === 'function') {
+                config.headers.set('Authorization', `Bearer ${token}`);
+            } else {
+                config.headers['Authorization'] = `Bearer ${token}`;
+            }
+        } else {
+            console.log(`[API Interceptor] Requisição para ${config.url} sem token local.`);
         }
         return config;
     },
