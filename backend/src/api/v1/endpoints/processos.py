@@ -586,6 +586,13 @@ async def listar_tarefas_me(funcionario_id: int, competencia_id: Optional[int] =
         
         if not exec_proc_ids:
             return []
+            
+        # OTIMIZAÇÃO OOM: Filtra para manter APENAS as execuções restritas à competência analisada
+        if competencia_id:
+            res_comp = supabase.table("rh_execucao_processos").select("id").in_("id", exec_proc_ids).eq("competencia_id", competencia_id).execute()
+            exec_proc_ids = [r['id'] for r in (res_comp.data or [])]
+            if not exec_proc_ids:
+                return []
 
         # 3. Busca TODAS as etapas de todos os processos que o funcionário "participa"
         query = supabase.table("rh_execucao_tarefas").select(
@@ -613,7 +620,7 @@ async def listar_tarefas_me(funcionario_id: int, competencia_id: Optional[int] =
             exec_p = t.get('rh_execucao_processos', {})
             if not exec_p: continue
             
-            # Filtro manual de competência (se passado)
+            # Filtro manual de competência descartável (substituído pela otimização OOM, mantido apenas blindagem)
             if competencia_id and exec_p.get('competencia_id') != competencia_id:
                 continue
 

@@ -128,8 +128,17 @@ async def get_my_performance(user_info: tuple = Depends(get_current_user_from_co
             print(f"[Performance Debug] Retornando resposta vazia para {nome_funcionario}")
             return _resposta_vazia(nome_funcionario, cargo, periodo_label)
 
-        # Buscar detalhes com joins
-        res_tarefas = supabase.table("rh_execucao_tarefas").select(
+        # OTIMIZAÇÃO OOM: Pré-buscar processos válidos apenas para a competência selecionada
+        valid_proc_ids = None
+        if comp_id:
+             res_comp_execs = supabase.table("rh_execucao_processos").select("id").eq("competencia_id", comp_id).execute()
+             valid_proc_ids = [r['id'] for r in (res_comp_execs.data or [])]
+             if not valid_proc_ids:
+                 print(f"[Performance Debug] Nenhum processo ativo encontrado para a Competência {comp_id}")
+                 return _resposta_vazia(nome_funcionario, cargo, periodo_label)
+
+        # Buscar detalhes com joins restritos aos processos da competência
+        query_tarefas = supabase.table("rh_execucao_tarefas").select(
             "id, status, execucao_processo_id, tarefa_id, iniciado_em, concluido_em, "
             "rh_execucao_processos(id, competencia_id, cliente_id, status, "
             "  clientes(razao_social), "
@@ -137,18 +146,14 @@ async def get_my_performance(user_info: tuple = Depends(get_current_user_from_co
             "  rh_competencias(mes, ano)"
             "), "
             "rh_tarefas(titulo, ordem, dias_prazo)"
-        ).in_("id", ids_tarefas).execute()
-
-        todas_tarefas_raw = res_tarefas.data or []
+        ).in_("id", ids_tarefas)
         
-        # Filtrar as tarefas para deixar apenas as da competência ativa atual
-        if comp_id:
-            todas_tarefas = [
-                t for t in todas_tarefas_raw
-                if (t.get("rh_execucao_processos") or {}).get("competencia_id") == comp_id
-            ]
-        else:
-            todas_tarefas = todas_tarefas_raw
+        if valid_proc_ids is not None:
+             query_tarefas = query_tarefas.in_("execucao_processo_id", valid_proc_ids)
+             
+        res_tarefas = query_tarefas.execute()
+
+        todas_tarefas = res_tarefas.data or []
         # ── 4. Cálculos de Visão Geral (KPIs) ────────────────────────────────
         concluidas = [t for t in todas_tarefas if t["status"] == "CONCLUIDA"]
         em_andamento = [t for t in todas_tarefas if t["status"] == "EM ANDAMENTO"]
