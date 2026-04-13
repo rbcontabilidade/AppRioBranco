@@ -18,8 +18,18 @@ jobs:
           fetch-depth: 0 # Baixa o histórico do Git necessário para empurrar
           lfs: true      # Habilita Git LFS para arquivos grandes
           
-      - name: Push to Hugging Face
-        # SUBSTITUA 'seu-usuario' e 'nome-do-seu-space' pelos valores reais do link do seu Space!
-        # Exemplo: se o link do seu space é https://huggingface.co/spaces/rbcontabilidade/AppRioBranco,
-        # Você colocaria rbcontabilidade:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/rbcontabilidade/AppRioBranco
-        run: git push --force https://RioBranco:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/RioBranco/AppRioBranco-API master:main
+      - name: Prepare and Push to Hugging Face
+        # A API pura python só precisa do backend e do Dockerfile! 
+        # Excluímos o Frontend Pesado para economizar dados e acelerar o HF
+        run: |
+          git config --global user.name "GitHub Action (Deployer)"
+          git config --global user.email "action@github.com"
+          
+          # Remove fisicamente da máquina virtual tudo que é inútil para a API
+          git rm -rf frontend/ supabase/ *.md .gitignore || true
+          
+          # Fazemos um commit temporário apenas nesta máquina do Github
+          git commit -m "Deploy Otimizado: Somente Backend e Dockerfile" || true
+          
+          # Sobrescreve o Hugging Face usando nosso HEAD temporário limpo
+          git push --force https://RioBranco:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/RioBranco/AppRioBranco-API HEAD:main
