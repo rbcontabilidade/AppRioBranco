@@ -22,4 +22,4 @@ jobs:
         # SUBSTITUA 'seu-usuario' e 'nome-do-seu-space' pelos valores reais do link do seu Space!
         # Exemplo: se o link do seu space é https://huggingface.co/spaces/rbcontabilidade/AppRioBranco,
         # Você colocaria rbcontabilidade:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/rbcontabilidade/AppRioBranco
-        run: git push --force https://seu-usuario:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/seu-usuario/nome-do-seu-space master:main
+        run: git push --force https://rbcontabilidade:${{ secrets.HF_TOKEN }}@huggingface.co/spaces/rbcontabilidade/AppRioBranco master:main
