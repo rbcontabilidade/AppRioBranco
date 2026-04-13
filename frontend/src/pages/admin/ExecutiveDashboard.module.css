@@ -224,6 +224,22 @@
     font-style: italic;
 }
 
+.kpiCard.interactive {
+    cursor: pointer;
+}
+
+.kpiCard.interactive:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 8px 24px var(--kpi-glow, rgba(0,0,0,0.2));
+    border-color: var(--kpi-cor, rgba(255, 255, 255, 0.2));
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.kpiCard.interactive:active {
+    transform: translateY(-1px) scale(1);
+    box-shadow: 0 4px 12px var(--kpi-glow, rgba(0,0,0,0.1));
+}
+
 /* ── Duas colunas ────────────────────────────────────────────────── */
 .duasColunas {
     display: grid;
@@ -322,6 +338,33 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-top: 4px;
+}
+
+.chartWrapper {
+    height: 180px;
+    width: 100%;
+    margin-top: 16px;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    padding: 10px 10px 0 0;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+/* Estilo para tooltip customizado do Recharts caso a classe seja forçada */
+.rechartsTooltip {
+    background-color: rgba(15, 23, 42, 0.95) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 8px !important;
+    color: #e2e8f0 !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
+    padding: 10px !important;
+}
+
+.rechartsTooltipLabel {
+    color: #94a3b8 !important;
+    font-weight: 700 !important;
+    margin-bottom: 4px;
+    font-size: 0.8rem;
 }
 
 .prazosResumoDivider {
@@ -481,6 +524,39 @@
     font-size: 0.75rem;
     font-weight: 600;
     border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.modalListContainer {
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.modalListContainer::-webkit-scrollbar {
+    width: 4px;
+}
+
+.modalListContainer::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.modalListContainer::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+}
+
+.modalListItem {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
 }
 
 /* ── Alertas ─────────────────────────────────────────────────────── */

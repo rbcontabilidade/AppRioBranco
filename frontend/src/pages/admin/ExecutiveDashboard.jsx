@@ -8,6 +8,8 @@ import {
     ArrowUp, ArrowDown, Minus, Loader
 } from 'lucide-react';
 import styles from './ExecutiveDashboard.module.css';
+import Modal from '../../components/ui/Modal/Modal';
+import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 // ─── Funções auxiliares ───────────────────────────────────────────────────────
 
@@ -28,8 +30,8 @@ const nivelCorCarga = {
 // ─── Sub-componentes ─────────────────────────────────────────────────────────
 
 // Card de KPI principal
-const KpiCard = ({ titulo, valor, sub, icon: Icon, cor, variacao }) => (
-    <div className={styles.kpiCard} style={{ '--kpi-cor': cor }}>
+const KpiCard = ({ titulo, valor, sub, icon: Icon, cor, variacao, onClick }) => (
+    <div className={`${styles.kpiCard} ${onClick ? styles.interactive : ''}`} style={{ '--kpi-cor': cor }} onClick={onClick}>
         <div className={styles.kpiTop}>
             <div className={styles.kpiIconWrap} style={{ backgroundColor: `${cor}20`, border: `1px solid ${cor}40` }}>
                 <Icon size={20} color={cor} />
@@ -74,6 +76,7 @@ const ExecutiveDashboard = () => {
     const [funcionarios, setFuncionarios] = useState([]);
     const [funcSelecionado, setFuncSelecionado] = useState('');
     const [ultimaAtualizacao, setUltimaAtualizacao] = useState(null);
+    const [activeModal, setActiveModal] = useState(null);
 
     // Buscar lista de competências e funcionários para os filtros
     useEffect(() => {
@@ -220,10 +223,10 @@ const ExecutiveDashboard = () => {
                         <KpiCard titulo="Total de Processos" valor={kpi.total_processos} icon={Layers} cor="#3b82f6" />
                         <KpiCard titulo="Processos Concluídos" valor={kpi.processos_concluidos} icon={CheckCircle2} cor="#10b981" />
                         <KpiCard titulo="Em Andamento" valor={kpi.processos_em_andamento} icon={Activity} cor="#8b5cf6" />
-                        <KpiCard titulo="Processos em Risco" valor={kpi.processos_em_risco} icon={AlertOctagon} cor="#ef4444" />
+                        <KpiCard titulo="Processos em Risco" valor={kpi.processos_em_risco} icon={AlertOctagon} cor="#ef4444" onClick={() => setActiveModal('PROCESSOS_RISCO')} />
                         <KpiCard titulo="Total de Tarefas" valor={kpi.total_tarefas} icon={Target} cor="#6366f1" />
                         <KpiCard titulo="Tarefas Concluídas" valor={kpi.tarefas_concluidas} icon={CheckCircle2} cor="#10b981" />
-                        <KpiCard titulo="Tarefas Atrasadas" valor={kpi.tarefas_atrasadas} icon={Clock} cor="#f59e0b" />
+                        <KpiCard titulo="Tarefas Atrasadas" valor={kpi.tarefas_atrasadas} icon={Clock} cor="#f59e0b" onClick={() => setActiveModal('TAREFAS_ATRASADAS')} />
                         <KpiCard
                             titulo="Taxa de Pontualidade"
                             valor={`${kpi.taxa_pontualidade ?? 0}%`}
@@ -276,24 +279,51 @@ const ExecutiveDashboard = () => {
                 <section className={`${styles.section} ${styles.cardGlass}`}>
                     <h2 className={styles.sectionTitle}><Zap size={18} /> Produtividade</h2>
                     {loading ? <SkeletonCard /> : (
-                        <div className={styles.prodGrid}>
-                            <div className={styles.prodItem} style={{ '--prod-cor': '#3b82f6' }}>
-                                <span className={styles.prodValor}>{produtividade.concluidas_hoje ?? 0}</span>
-                                <span className={styles.prodLabel}>Concluídas Hoje</span>
+                        <>
+                            <div className={styles.prodGrid}>
+                                <div className={styles.prodItem} style={{ '--prod-cor': '#3b82f6' }}>
+                                    <span className={styles.prodValor}>{produtividade.concluidas_hoje ?? 0}</span>
+                                    <span className={styles.prodLabel}>Concluídas Hoje</span>
+                                </div>
+                                <div className={styles.prodItem} style={{ '--prod-cor': '#8b5cf6' }}>
+                                    <span className={styles.prodValor}>{produtividade.concluidas_semana ?? 0}</span>
+                                    <span className={styles.prodLabel}>Esta Semana</span>
+                                </div>
+                                <div className={styles.prodItem} style={{ '--prod-cor': '#10b981' }}>
+                                    <span className={styles.prodValor}>{produtividade.concluidas_mes ?? 0}</span>
+                                    <span className={styles.prodLabel}>Este Mês</span>
+                                </div>
+                                <div className={styles.prodItem} style={{ '--prod-cor': '#f59e0b' }}>
+                                    <span className={styles.prodValor}>{produtividade.total_concluidas ?? 0}</span>
+                                    <span className={styles.prodLabel}>Total Concluídas</span>
+                                </div>
                             </div>
-                            <div className={styles.prodItem} style={{ '--prod-cor': '#8b5cf6' }}>
-                                <span className={styles.prodValor}>{produtividade.concluidas_semana ?? 0}</span>
-                                <span className={styles.prodLabel}>Esta Semana</span>
+                            <div className={styles.chartWrapper}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={[
+                                        { name: 'Hoje', valor: produtividade.concluidas_hoje ?? 0, color: '#3b82f6' },
+                                        { name: 'Semana', valor: produtividade.concluidas_semana ?? 0, color: '#8b5cf6' },
+                                        { name: 'Mês', valor: produtividade.concluidas_mes ?? 0, color: '#10b981' },
+                                        { name: 'Total', valor: produtividade.total_concluidas ?? 0, color: '#f59e0b' }
+                                    ]}>
+                                        <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} />
+                                        <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
+                                        <Bar dataKey="valor" radius={[4, 4, 0, 0]}>
+                                            {
+                                                [
+                                                    { name: 'Hoje', valor: produtividade.concluidas_hoje ?? 0, color: '#3b82f6' },
+                                                    { name: 'Semana', valor: produtividade.concluidas_semana ?? 0, color: '#8b5cf6' },
+                                                    { name: 'Mês', valor: produtividade.concluidas_mes ?? 0, color: '#10b981' },
+                                                    { name: 'Total', valor: produtividade.total_concluidas ?? 0, color: '#f59e0b' }
+                                                ].map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                                ))
+                                            }
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
                             </div>
-                            <div className={styles.prodItem} style={{ '--prod-cor': '#10b981' }}>
-                                <span className={styles.prodValor}>{produtividade.concluidas_mes ?? 0}</span>
-                                <span className={styles.prodLabel}>Este Mês</span>
-                            </div>
-                            <div className={styles.prodItem} style={{ '--prod-cor': '#f59e0b' }}>
-                                <span className={styles.prodValor}>{produtividade.total_concluidas ?? 0}</span>
-                                <span className={styles.prodLabel}>Total Concluídas</span>
-                            </div>
-                        </div>
+                        </>
                     )}
 
                     {/* Monitor de Prazos dentro do card */}
@@ -568,6 +598,58 @@ const ExecutiveDashboard = () => {
                 </section>
             )}
 
+            {/* Modal de Detalhamento dos Indicadores */}
+            <Modal 
+                isOpen={!!activeModal} 
+                onClose={() => setActiveModal(null)} 
+                title={activeModal === 'PROCESSOS_RISCO' ? 'Detalhamento de Processos em Risco' : 'Detalhamento de Tarefas Atrasadas'}
+                size="lg"
+            >
+                <div className={styles.modalListContainer}>
+                    {activeModal === 'PROCESSOS_RISCO' && (gargalos.processos_atrasados?.length || gargalos.processos_parados?.length) ? (
+                        <>
+                            {gargalos.processos_atrasados?.map(g => (
+                                <div key={`atraso-${g.processo_id}`} className={styles.modalListItem}>
+                                    <div style={{flex: 1}}>
+                                        <div style={{fontWeight: 600, color: '#f1f5f9'}}>{g.processo_nome}</div>
+                                        <div style={{fontSize: '0.8rem', color: '#94a3b8'}}>{g.cliente_nome}</div>
+                                    </div>
+                                    <div className={styles.badgeAtraso} style={{whiteSpace: 'nowrap'}}>{g.tarefas_atrasadas} tarefas atrasadas</div>
+                                </div>
+                            ))}
+                            {gargalos.processos_parados?.map(p => (
+                                <div key={`parado-${p.processo_id}`} className={styles.modalListItem}>
+                                    <div style={{flex: 1}}>
+                                        <div style={{fontWeight: 600, color: '#f1f5f9'}}>{p.processo_nome}</div>
+                                        <div style={{fontSize: '0.8rem', color: '#94a3b8'}}>{p.cliente_nome}</div>
+                                    </div>
+                                    <div className={styles.badgeDias} style={{
+                                        backgroundColor: p.dias_parado >= 14 ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)',
+                                        color: p.dias_parado >= 14 ? '#fca5a5' : '#fcd34d'
+                                    }}>
+                                        Parado há {p.dias_parado} dias
+                                    </div>
+                                </div>
+                            ))}
+                        </>
+                    ) : activeModal === 'TAREFAS_ATRASADAS' && prazos.vencidas?.length ? (
+                        prazos.vencidas.map(t => (
+                            <div key={t.tarefa_id} className={styles.modalListItem}>
+                                <div style={{flex: 1}}>
+                                    <div style={{fontWeight: 600, color: '#fca5a5'}}>{t.titulo}</div>
+                                    <div style={{fontSize: '0.8rem', color: '#94a3b8'}}>{t.processo} • {t.cliente}</div>
+                                    <div style={{fontSize: '0.75rem', color: '#64748b', marginTop: '4px'}}>
+                                        Resp: {t.responsaveis?.join(', ') || 'Equipe'}
+                                    </div>
+                                </div>
+                                <div className={styles.badgeVencido} style={{alignSelf: 'flex-start'}}>{t.prazo}</div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className={styles.empty}>Nenhum dado selecionado ou detalhe disponível para a competência.</div>
+                    )}
+                </div>
+            </Modal>
         </div>
     );
 };
